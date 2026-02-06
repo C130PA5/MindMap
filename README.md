@@ -11,4 +11,3 @@ After creating your personal map, don't forget to export it as json for later!
 
 **Future Improvements**
 - Adjust themes list
-- Auto-save in background
