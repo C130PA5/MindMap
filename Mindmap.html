@@ -263,12 +263,15 @@ function createNode(x, y, text = "New Node", className = "node") {
   expandWorldIfNeeded(x, y);
   const node = document.createElement("div");
   node.className = className.replace("selected","");
+  node.className = className.replace("collapsed","");
   if (activeTheme) {
     node.classList.add("theme-" + activeTheme);
   }
   node.textContent = text;
   node.style.left = x + "px";
   node.style.top = y + "px";
+  node.dataset.hiddenByParent= "false";
+  node.dataset.collapsed = "false";
 
   canvas.appendChild(node);
   nodes.push(node);
@@ -535,11 +538,16 @@ function hideSubtree(node) {
 
 function showSubtree(node) {
   getChildren(node).forEach(child => {
-    if (child.dataset.hiddenByParent === "true" && node.dataset.collapsed === "false") {
+    if (node.dataset.collapsed !== "true"){
+      if (child.dataset.collapsed !== "true") {
+        child.style.display = "block";
+        child.dataset.hiddenByParent = "false";
+        showSubtree(child);
+      }
+    else {
       child.style.display = "block";
       child.dataset.hiddenByParent = "false";
-      showSubtree(child);
-    }
+    }}
   });
 }
 
