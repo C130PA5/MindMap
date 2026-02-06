@@ -328,12 +328,8 @@ viewport.addEventListener("wheel", e => {
 
 /* ---------- PAN ---------- */
 let panning = false;
-viewport.addEventListener("contextmenu", e => {
-  e.preventDefault();
-});
 
 viewport.addEventListener("mousedown", e => {
-  if (e.button !== 2) return;
   panning = true;
   viewport.style.cursor = "grabbing";
   offsetX = e.clientX - panX;
