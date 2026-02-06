@@ -167,6 +167,7 @@ svg {
 const canvas = document.getElementById("canvas");
 let svg = document.getElementById("lines");
 const viewport = document.getElementById("viewport");
+let activeTheme = "";
 
 let nodes = [];
 let edges = [];
@@ -182,6 +183,9 @@ let panY = 0;
 function createNode(x, y, text = "New Node", className = "node") {
   const node = document.createElement("div");
   node.className = className;
+  if (activeTheme) {
+    node.classList.add("theme-" + activeTheme);
+  }
   node.textContent = text;
   node.style.left = x + "px";
   node.style.top = y + "px";
@@ -360,16 +364,17 @@ function applyTransform() {
 
 /* ---------- CATEGORIES ---------- */
 document.getElementById("category").addEventListener("change", e => {
-  if (!selectedNode) return;
+  activeTheme = e.target.value;
 
-  // Reset previous themes
-  selectedNode.className = "node";
-
-  const theme = e.target.value;
-  if (theme) {
-    selectedNode.classList.add("theme-" + theme);
+  // If a node is selected, apply immediately to it too
+  if (selectedNode) {
+    selectedNode.className = "node";
+    if (activeTheme) {
+      selectedNode.classList.add("theme-" + activeTheme);
+    }
   }
 });
+
 
 
 /* ---------- KEYBOARD ---------- */
