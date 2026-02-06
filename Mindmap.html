@@ -32,6 +32,12 @@ button, select {
   overflow: hidden;
 }
 
+#viewport, .node {
+  user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+}
+
 #world {
   position: relative;
   width: 100%;
@@ -182,7 +188,7 @@ let panY = 0;
 /* ---------- NODE ---------- */
 function createNode(x, y, text = "New Node", className = "node") {
   const node = document.createElement("div");
-  node.className = className;
+  node.className = className.replace("selected","");
   if (activeTheme) {
     node.classList.add("theme-" + activeTheme);
   }
@@ -218,9 +224,9 @@ function createNode(x, y, text = "New Node", className = "node") {
     // CONNECT ONLY FROM LAST SELECTED
     edges.push({ a: selectedNode, b: node });
     clearSelection();
-  resetTransform()
-  redraw();
-  applyTransform()
+//  resetTransform()
+//  redraw();
+//  applyTransform()
   });
 
   // --- Edit ---
@@ -388,6 +394,7 @@ document.addEventListener("keydown", e => {
 
 /* ---------- EXPORT PNG ---------- */
 function exportPNG() {
+  clearSelection(); // remove outline
   html2canvas(world).then(c => {
     const link = document.createElement("a");
     link.download = "mindmap.png";
@@ -403,7 +410,7 @@ function exportSVG() {
   // Get bounds of all nodes
   let minX = Infinity, minY = Infinity;
   let maxX = -Infinity, maxY = -Infinity;
-
+  clearSelection(); // remove outline
   nodes.forEach(n => {
     const x = parseFloat(n.style.left);
     const y = parseFloat(n.style.top);
@@ -506,6 +513,7 @@ function exportSVG() {
 
 /* ---------- EXPORT JSON ---------- */
 function exportJSON() {
+  clearSelection(); // remove outline
   const data = {
     nodes: nodes.map((n, idx) => ({
       id: idx,           // unique index
@@ -555,7 +563,7 @@ function loadJSON(data) {
 
   // Recreate nodes
   data.nodes.forEach(n => {
-    createNode(n.x, n.y, n.text ,n.className)
+    createNode(n.x, n.y, n.text ,n.className);
   });
 
   // Recreate edges using node references
@@ -567,6 +575,7 @@ function loadJSON(data) {
   resetTransform()
   redraw();
   applyTransform()
+  clearSelection(); // remove outline
     }
   });
 
