@@ -1,7 +1,7 @@
 # MindMap
 Basic HTML MindMap
 
-Click on page to create a new node.
+Double-Click on page to create a new node.
 Click on node to select and then on any other node to create a path. 
 Double-click on node to modify its label.
 
