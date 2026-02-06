@@ -307,7 +307,7 @@ document.addEventListener("mousemove", e => {
 document.addEventListener("mouseup", () => draggingNode = null);
 
 /* ---------- EMPTY CLICK ONLY ---------- */
-canvas.addEventListener("click", e => {
+canvas.addEventListener("dblclick", e => {
   if (e.target !== canvas) return;
   const x = (e.offsetX - panX) / scale;
   const y = (e.offsetY - panY) / scale;
@@ -324,8 +324,12 @@ viewport.addEventListener("wheel", e => {
 
 /* ---------- PAN ---------- */
 let panning = false;
+viewport.addEventListener("contextmenu", e => {
+  e.preventDefault();
+});
+
 viewport.addEventListener("mousedown", e => {
-  if (e.target !== viewport) return;
+  if (e.button !== 2) return;
   panning = true;
   viewport.style.cursor = "grabbing";
   offsetX = e.clientX - panX;
