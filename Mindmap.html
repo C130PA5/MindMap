@@ -73,6 +73,11 @@ button, select {
   outline: 3px solid #007bff;
 }
 
+.node.collapsed {
+  opacity: 0.75;
+  border-style: dashed;
+}
+
 svg {
   position: absolute;
   width: 100%;
@@ -276,6 +281,11 @@ function createNode(x, y, text = "New Node", className = "node") {
     e.stopPropagation();
   });
 
+  node.addEventListener("contextmenu", e => {
+    e.preventDefault(); // disable browser menu
+    toggleSubtree(node);
+  });
+
   // --- Select / Connect ---
   node.addEventListener("click", e => {
     e.stopPropagation();
@@ -336,6 +346,12 @@ function redraw() {
   const canvasRect = canvas.getBoundingClientRect();
 
   edges.forEach(e => {
+    if (
+      e.a.style.display === "none" ||
+      e.b.style.display === "none"
+    ) {
+      return;
+    }
     const aRect = e.a.getBoundingClientRect();
     const bRect = e.b.getBoundingClientRect();
 
@@ -484,6 +500,50 @@ document.addEventListener("keydown", e => {
   }
 });
 
+
+function getChildren(node) {
+  return edges
+    .filter(e => e.a === node)
+    .map(e => e.b);
+}
+
+function toggleSubtree(node) {
+  const collapsed = node.dataset.collapsed === "true";
+  node.dataset.collapsed = collapsed ? "false" : "true";
+
+  if (node.dataset.collapsed === "true") {
+    hideSubtree(node);
+    node.classList.add("collapsed");
+  } else {
+    showSubtree(node);
+    node.classList.remove("collapsed");
+  }
+  resetTransform()
+  //horizontalTreeLayout();
+  redraw();
+  applyTransform()  
+
+}
+
+function hideSubtree(node) {
+  getChildren(node).forEach(child => {
+    child.style.display = "none";
+    child.dataset.hiddenByParent = "true";
+    hideSubtree(child);
+  });
+}
+
+function showSubtree(node) {
+  getChildren(node).forEach(child => {
+    if (child.dataset.hiddenByParent === "true" && node.dataset.collapsed === "false") {
+      child.style.display = "block";
+      child.dataset.hiddenByParent = "false";
+      showSubtree(child);
+    }
+  });
+}
+
+
 /* ---------- EXPORT PNG ---------- */
 function exportPNG() {
   clearSelection(); // remove outline
@@ -528,6 +588,12 @@ function exportSVG() {
 
   /* ---------- DRAW EDGES ---------- */
   edges.forEach(e => {
+    if (
+      e.a.style.display === "none" ||
+      e.b.style.display === "none"
+      ) {
+        return;
+      }
     const ax = parseFloat(e.a.style.left) - minX + padding + e.a.offsetWidth;
     const ay = parseFloat(e.a.style.top) - minY + padding + e.a.offsetHeight / 2;
 
@@ -705,11 +771,16 @@ function horizontalTreeLayout() {
   const subtree = new Map();
 
   nodes.forEach(n => {
+    if (n.style.display === "none") return;
     children.set(n, []);
     indegree.set(n, 0);
   });
 
   edges.forEach(e => {
+    if (
+    e.a.style.display === "none" ||
+    e.b.style.display === "none"
+    ) return;
     children.get(e.a)?.push(e.b);
     indegree.set(e.b, indegree.get(e.b) + 1);
   });
