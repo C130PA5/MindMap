@@ -147,6 +147,9 @@ svg {
   <button onclick="importJSON()">Import JSON</button>
   <button onclick="horizontalTreeLayout()">Adjust Layout</button>
   <button onclick="removeLastConnection()">Remove last connection</button>
+  <button onclick="loadFromCache()">Reload Cached</button>
+  <button onclick="clearCache()">Clear Cache</button>
+
 
     <select id="category">
     <option value="">Theme</option>
@@ -201,6 +204,55 @@ function expandWorldIfNeeded(x, y) {
   }
 }
 
+/* ---------- CACHING ---------- */
+function saveToCache() {
+  const data = {
+    nodes: nodes.map((n, idx) => ({
+      id: idx,
+      text: n.textContent,
+      x: parseFloat(n.style.left),
+      y: parseFloat(n.style.top),
+      className: n.className
+    })),
+    edges: edges.map(e => ({
+      from: nodes.indexOf(e.a),
+      to: nodes.indexOf(e.b)
+    })),
+    view: {
+      scale: scale,
+      panX: panX,
+      panY: panY
+    }
+  };
+
+  localStorage.setItem("mindmap-autosave", JSON.stringify(data));
+}
+
+function loadFromCache() {
+  const saved = localStorage.getItem("mindmap-autosave");
+  if (!saved) {
+    alert("No cached version found.");
+    return;
+  }
+
+  const data = JSON.parse(saved);
+  loadJSON(data);
+
+  // Restore zoom & pan
+  if (data.view) {
+    scale = data.view.scale || 1;
+    panX = data.view.panX || 0;
+    panY = data.view.panY || 0;
+    applyTransform();
+  }
+}
+
+function clearCache() {
+  localStorage.removeItem("mindmap-autosave");
+  alert("Cache cleared.");
+}
+
+
 /* ---------- NODE ---------- */
 function createNode(x, y, text = "New Node", className = "node") {
   expandWorldIfNeeded(x, y);
@@ -241,9 +293,10 @@ function createNode(x, y, text = "New Node", className = "node") {
     // CONNECT ONLY FROM LAST SELECTED
     edges.push({ a: selectedNode, b: node });
     clearSelection();
-  resetTransform()
+  resetTransform();
   redraw();
-  applyTransform()
+  applyTransform();
+  saveToCache();
   });
 
   // --- Edit ---
@@ -252,9 +305,10 @@ function createNode(x, y, text = "New Node", className = "node") {
     const txt = prompt("Edit text", node.textContent);
     if (txt) node.textContent = txt;
     requestAnimationFrame(() => {
-  resetTransform()
+  resetTransform();
   redraw();
-  applyTransform()
+  applyTransform();
+  saveToCache();
       //horizontalTreeLayout();
     });
   });
@@ -338,7 +392,10 @@ document.addEventListener("mousemove", e => {
   applyTransform()
 });
 
-document.addEventListener("mouseup", () => draggingNode = null);
+document.addEventListener("mouseup", () => {
+  draggingNode = null;
+  if (!panning) saveToCache();
+});
 
 /* ---------- EMPTY CLICK ONLY ---------- */
 canvas.addEventListener("dblclick", e => {
@@ -423,6 +480,7 @@ document.addEventListener("keydown", e => {
   resetTransform()
   redraw();
   applyTransform()
+  saveToCache();
   }
 });
 
@@ -607,19 +665,21 @@ function loadJSON(data) {
     const toNode = nodes[e.to];
     if (fromNode && toNode) {
       edges.push({ a: fromNode, b: toNode });
-  resetTransform()
+  resetTransform();
   redraw();
-  applyTransform()
+  applyTransform();
   clearSelection(); // remove outline
+  saveToCache();
     }
   });
 
   // Wait for browser to render text, then layout & redraw
   requestAnimationFrame(() => {
-  resetTransform()
+  resetTransform();
   redraw();
-  applyTransform()
-    horizontalTreeLayout();
+  applyTransform();
+  horizontalTreeLayout();
+  saveToCache();
   });
 }
 
@@ -733,10 +793,19 @@ function removeLastConnection() {
 
   edges.pop();          // remove most recent connection
   clearSelection();     // safety
-  resetTransform()
+  resetTransform();
   redraw();
-  applyTransform()  // horizontalTreeLayout();
+  applyTransform();  // horizontalTreeLayout();
+  saveToCache();
 }
+
+window.addEventListener("load", () => {
+  const saved = localStorage.getItem("mindmap-autosave");
+  if (saved) {
+    loadFromCache();
+  }
+});
+
 
 </script>
 
