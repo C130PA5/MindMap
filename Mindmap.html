@@ -185,8 +185,25 @@ let scale = 1;
 let panX = 0;
 let panY = 0;
 
+/* ---------- World Expansion ---------- */
+function expandWorldIfNeeded(x, y) {
+  const padding = 500;
+
+  const currentWidth = world.offsetWidth;
+  const currentHeight = world.offsetHeight;
+
+  if (x + padding > currentWidth) {
+    world.style.width = currentWidth + 2000 + "px";
+  }
+
+  if (y + padding > currentHeight) {
+    world.style.height = currentHeight + 2000 + "px";
+  }
+}
+
 /* ---------- NODE ---------- */
 function createNode(x, y, text = "New Node", className = "node") {
+  expandWorldIfNeeded(x, y);
   const node = document.createElement("div");
   node.className = className.replace("selected","");
   if (activeTheme) {
@@ -330,8 +347,9 @@ canvas.addEventListener("dblclick", e => {
   const worldRect = world.getBoundingClientRect();
 
   // Convert screen → world coordinates
-  const x = (e.clientX - worldRect.left) / scale;
-  const y = (e.clientY - worldRect.top) / scale;
+  const x = (e.clientX - panX) / scale;
+  const y = (e.clientY - panY) / scale;
+
 
   createNode(x, y);
 });
@@ -352,6 +370,10 @@ viewport.addEventListener("mousedown", e => {
   viewport.style.cursor = "grabbing";
   offsetX = e.clientX - panX;
   offsetY = e.clientY - panY;
+});
+
+viewport.addEventListener("click", e => {
+  clearSelection()
 });
 
 document.addEventListener("mousemove", e => {
