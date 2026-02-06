@@ -566,11 +566,12 @@ function loadJSON(data) {
   nodes = [];
   edges = [];
   selectedNode = null;
+  document.getElementById("lines").remove();
 
   // Recreate SVG and bind it
   const newSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   newSvg.setAttribute("id", "lines");
-  canvas.appendChild(newSvg);
+  world.appendChild(newSvg);
   svg = newSvg;
 
   // Recreate nodes
