@@ -224,9 +224,9 @@ function createNode(x, y, text = "New Node", className = "node") {
     // CONNECT ONLY FROM LAST SELECTED
     edges.push({ a: selectedNode, b: node });
     clearSelection();
-  //resetTransform()
+  resetTransform()
   redraw();
-  //applyTransform()
+  applyTransform()
   });
 
   // --- Edit ---
@@ -307,8 +307,15 @@ function redraw() {
 /* ---------- DRAG ---------- */
 document.addEventListener("mousemove", e => {
   if (!draggingNode) return;
-  draggingNode.style.left = (e.pageX - offsetX - panX) / scale + "px";
-  draggingNode.style.top = (e.pageY - offsetY - panY - 42) / scale + "px";
+
+  const worldRect = world.getBoundingClientRect();
+
+  const x = (e.clientX - worldRect.left - offsetX * scale) / scale;
+  const y = (e.clientY - worldRect.top - offsetY * scale) / scale;
+
+  draggingNode.style.left = x + "px";
+  draggingNode.style.top  = y + "px";
+
   resetTransform()
   redraw();
   applyTransform()
@@ -319,8 +326,13 @@ document.addEventListener("mouseup", () => draggingNode = null);
 /* ---------- EMPTY CLICK ONLY ---------- */
 canvas.addEventListener("dblclick", e => {
   if (e.target !== canvas) return;
-  const x = (e.offsetX - panX) / scale;
-  const y = (e.offsetY - panY) / scale;
+
+  const worldRect = world.getBoundingClientRect();
+
+  // Convert screen → world coordinates
+  const x = (e.clientX - worldRect.left) / scale;
+  const y = (e.clientY - worldRect.top) / scale;
+
   createNode(x, y);
 });
 
