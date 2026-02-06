@@ -136,6 +136,7 @@ svg {
 
 <div id="toolbar">
   <button onclick="exportPNG()">Export PNG</button>
+  <button onclick="exportSVG()">Export SVG</button>
   <button onclick="exportJSON()">Export JSON</button>
   <button onclick="importJSON()">Import JSON</button>
   <button onclick="horizontalTreeLayout()">Adjust Layout</button>
@@ -382,13 +383,121 @@ document.addEventListener("keydown", e => {
 
 /* ---------- EXPORT PNG ---------- */
 function exportPNG() {
-  html2canvas(canvas).then(c => {
+  html2canvas(world).then(c => {
     const link = document.createElement("a");
     link.download = "mindmap.png";
     link.href = c.toDataURL();
     link.click();
   });
 }
+
+/* ---------- EXPORT SVG ---------- */
+function exportSVG() {
+  const padding = 40;
+
+  // Get bounds of all nodes
+  let minX = Infinity, minY = Infinity;
+  let maxX = -Infinity, maxY = -Infinity;
+
+  nodes.forEach(n => {
+    const x = parseFloat(n.style.left);
+    const y = parseFloat(n.style.top);
+    const w = n.offsetWidth;
+    const h = n.offsetHeight;
+
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x + w);
+    maxY = Math.max(maxY, y + h);
+  });
+
+  const width = maxX - minX + padding * 2;
+  const height = maxY - minY + padding * 2;
+
+  const xmlns = "http://www.w3.org/2000/svg";
+  const svgExport = document.createElementNS(xmlns, "svg");
+
+  svgExport.setAttribute("xmlns", xmlns);
+  svgExport.setAttribute("width", width);
+  svgExport.setAttribute("height", height);
+  svgExport.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+  /* ---------- DRAW EDGES ---------- */
+  edges.forEach(e => {
+    const ax = parseFloat(e.a.style.left) - minX + padding + e.a.offsetWidth;
+    const ay = parseFloat(e.a.style.top) - minY + padding + e.a.offsetHeight / 2;
+
+    const bx = parseFloat(e.b.style.left) - minX + padding;
+    const by = parseFloat(e.b.style.top) - minY + padding + e.b.offsetHeight / 2;
+
+    const dx = Math.max(80, (bx - ax) * 0.5);
+
+    const path = document.createElementNS(xmlns, "path");
+    path.setAttribute(
+      "d",
+      `M ${ax} ${ay}
+       C ${ax + dx} ${ay},
+         ${bx - dx} ${by},
+         ${bx} ${by}`
+    );
+
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", "#555");
+    path.setAttribute("stroke-width", "2");
+
+    svgExport.appendChild(path);
+  });
+
+  /* ---------- DRAW NODES ---------- */
+  nodes.forEach(n => {
+    const x = parseFloat(n.style.left) - minX + padding;
+    const y = parseFloat(n.style.top) - minY + padding;
+    const w = n.offsetWidth;
+    const h = n.offsetHeight;
+
+    // Get computed styles (so themes export correctly)
+    const styles = getComputedStyle(n);
+
+    const rect = document.createElementNS(xmlns, "rect");
+    rect.setAttribute("x", x);
+    rect.setAttribute("y", y);
+    rect.setAttribute("width", w);
+    rect.setAttribute("height", h);
+    rect.setAttribute("rx", 8);
+    rect.setAttribute("fill", styles.backgroundColor);
+    rect.setAttribute("stroke", "rgba(0,0,0,0.15)");
+
+    svgExport.appendChild(rect);
+
+    const text = document.createElementNS(xmlns, "text");
+    text.setAttribute("x", x + w / 2);
+    text.setAttribute("y", y + h / 2);
+    text.setAttribute("text-anchor", "middle");
+    text.setAttribute("dominant-baseline", "middle");
+    text.setAttribute("fill", styles.color);
+    text.setAttribute("font-family", "Arial");
+    text.setAttribute("font-size", "14");
+
+    text.textContent = n.textContent;
+
+    svgExport.appendChild(text);
+  });
+
+  /* ---------- DOWNLOAD ---------- */
+  const serializer = new XMLSerializer();
+  const svgBlob = new Blob(
+    [serializer.serializeToString(svgExport)],
+    { type: "image/svg+xml" }
+  );
+
+  const url = URL.createObjectURL(svgBlob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "mindmap.svg";
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 
 /* ---------- EXPORT JSON ---------- */
 function exportJSON() {
