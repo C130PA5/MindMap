@@ -534,6 +534,7 @@ function hideSubtree(node) {
     child.dataset.hiddenByParent = "true";
     hideSubtree(child);
   });
+  horizontalTreeLayout();
 }
 
 function showSubtree(node) {
@@ -549,6 +550,8 @@ function showSubtree(node) {
       child.dataset.hiddenByParent = "false";
     }}
   });
+  horizontalTreeLayout();
+
 }
 
 
@@ -793,6 +796,13 @@ function horizontalTreeLayout() {
     indegree.set(e.b, indegree.get(e.b) + 1);
   });
 
+  // Sort children alphabetically by text
+  children.forEach((kids, parent) => {
+    kids.sort((a, b) =>
+      a.textContent.localeCompare(b.textContent)
+    );
+  });
+
   const roots = nodes.filter(n => indegree.get(n) === 0);
 
   const levelGap = 300;
@@ -826,30 +836,35 @@ function horizontalTreeLayout() {
 
   function place(node, depth, topY) {
     const kids = children.get(node);
-    const nodeRect = node.getBoundingClientRect();
-    const nodeH = nodeRect.height;
+    const nodeH = node.getBoundingClientRect().height;
 
     let centerY;
 
     if (!kids || kids.length === 0) {
+      // Leaf node
       centerY = topY + nodeH / 2;
     } else {
+      // Place children first
       let y = topY;
+      const childCenters = [];
+
       kids.forEach(k => {
         place(k, depth + 1, y);
+        const childTop = parseFloat(k.style.top);
+        const childH = k.getBoundingClientRect().height;
+        childCenters.push(childTop + childH / 2);
+
         y += subtree.get(k) + verticalGap;
       });
 
-      const first = kids[0].getBoundingClientRect();
-      const last  = kids[kids.length - 1].getBoundingClientRect();
-
-      centerY =
-        (first.top + first.height / 2 +
-         last.top + last.height / 2) / 2;
+      // Parent centered exactly between first & last child center
+      const firstCenter = childCenters[0];
+      const lastCenter = childCenters[childCenters.length - 1];
+      centerY = (firstCenter + lastCenter) / 2;
     }
 
     node.style.left = depth * levelGap + 150 + "px";
-    node.style.top  = centerY - nodeH / 2 + "px";
+    node.style.top = centerY - nodeH / 2 + "px";
   }
 
   roots.forEach(r => {
