@@ -370,7 +370,7 @@ function redraw() {
       [x1, y1, x2, y2].some(v => Number.isNaN(v))
     ) return;
 
-    const dx = Math.max(80, (x2 - x1) * 0.5);
+    const dx = Math.max(30, (x2 - x1) * 0.5);
 
     const path = document.createElementNS(
       "http://www.w3.org/2000/svg",
@@ -380,9 +380,9 @@ function redraw() {
     path.setAttribute(
       "d",
       `M ${x1} ${y1}
-       C ${x1 + dx} ${y1},
-         ${x2 - dx} ${y2},
-         ${x2} ${y2}`
+       H ${x1 + dx*0.5}
+       l ${dx*0.5} ${y2 - y1}
+       H ${x2}`
     );
 
     path.setAttribute("fill", "none");
@@ -805,7 +805,7 @@ function horizontalTreeLayout() {
 
   const roots = nodes.filter(n => indegree.get(n) === 0);
 
-  const levelGap = 300;
+  const levelGap = 250;
   const verticalGap = 60;
 
   function computeHeight(node) {
