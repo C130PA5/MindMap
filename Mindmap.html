@@ -57,20 +57,34 @@ button, select {
 
 .node {
   position: absolute;
-  padding: 10px;
-  min-width: 120px;
-  max-width: 240px;
-  word-break: break-word;
-  line-height: 1.3;
-  border-radius: 8px;
-  background: white;
-  text-align: center;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 2px 6px;
+  min-width: unset;
+  max-width: 600px;
+  min-height: 30px;
+  text-align: left;
+  line-height: 1.4;
   cursor: move;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.node-ref {
+  margin-left: 6px;
+}
+
+.ref-link {
+  text-decoration: none;
+  font-size: 0.9em;
+  opacity: 0.6;
+}
+
+.ref-link:hover {
+  opacity: 1;
 }
 
 .node.selected {
-  outline: 3px solid #007bff;
+  background: rgba(0, 123, 255, 0.08);
 }
 
 .node.collapsed {
@@ -90,56 +104,34 @@ svg {
   z-index: 10;
 }
 
-
-/* ===== COLOR TEMPLATES ===== */
-
-/* ML */
-.theme-ml {
-  background: #e3f2fd;
-  color: #0d47a1;
+#inspector {
+  position: absolute;
+  right: 0;
+  top: 42px;
+  width: 260px;
+  height: calc(100% - 42px);
+  background: #f8f9fa;
+  border-left: 1px solid #ddd;
+  padding: 12px;
+  box-sizing: border-box;
+  font-size: 14px;
 }
 
-/* AI */
-.theme-ai {
-  background: #fce4ec;
-  color: #880e4f;
+#inspector textarea {
+  width: 100%;
+  margin-bottom: 10px;
 }
 
-/* Data */
-.theme-data {
-  background: #e8f5e9;
-  color: #1b5e20;
+#inspector input {
+  width: 100%;
+  margin-bottom: 10px;
 }
 
-/* Dev / Infra */
-.theme-dev {
-  background: #fff3e0;
-  color: #e65100;
+#viewport {
+  width: calc(100% - 260px);
 }
 
-/* Research */
-.theme-research {
-  background: #ede7f6;
-  color: #4527a0;
-}
 
-/* Tooling */
-.theme-tools {
-  background: #e0f2f1;
-  color: #004d40;
-}
-
-/* Highlight / Core */
-.theme-core {
-  background: #263238;
-  color: #ffffff;
-}
-
-/* Warning / Experimental */
-.theme-experimental {
-  background: #fffde7;
-  color: #827717;
-}
 </style>
 </head>
 
@@ -155,18 +147,8 @@ svg {
   <button onclick="loadFromCache()">Reload Cached</button>
   <button onclick="clearCache()">Clear Cache</button>
 
+  <input type="color" id="lineColor">
 
-    <select id="category">
-    <option value="">Theme</option>
-    <option value="ml">ML</option>
-    <option value="ai">AI</option>
-    <option value="data">Data</option>
-    <option value="dev">Dev / Infra</option>
-    <option value="research">Research</option>
-    <option value="tools">Tools</option>
-    <option value="core">Core</option>
-    <option value="experimental">Experimental</option>
-    </select>
 
 </div>
 
@@ -175,13 +157,25 @@ svg {
     <div id="canvas"></div>
     <svg id="lines"></svg>
     </div>
+  </div>
+
+<div id="inspector">
+  <h3>Node Editor</h3>
+
+  <label>Label</label>
+  <textarea id="editText" rows="4"></textarea>
+
+  <label>Reference URL</label>
+  <input type="text" id="editURL">
+
+  <button onclick="applyChanges()">Apply</button>
 </div>
+
 
 <script>
 const canvas = document.getElementById("canvas");
 let svg = document.getElementById("lines");
 const viewport = document.getElementById("viewport");
-let activeTheme = "";
 
 let nodes = [];
 let edges = [];
@@ -211,17 +205,18 @@ function expandWorldIfNeeded(x, y) {
 
 /* ---------- CACHING ---------- */
 function saveToCache() {
+  clearSelection(); // remove outline
   const data = {
-    nodes: nodes.map((n, idx) => ({
-      id: idx,
-      text: n.textContent,
-      x: parseFloat(n.style.left),
-      y: parseFloat(n.style.top),
-      className: n.className
+    nodes: nodes.map(n => ({
+      text: n.text.trim(),
+      url: n.url.trim(),
+      x: parseFloat(n.el.style.left),
+      y: parseFloat(n.el.style.top),
+      className: n.el.className
     })),
     edges: edges.map(e => ({
-      from: nodes.indexOf(e.a),
-      to: nodes.indexOf(e.b)
+      from: nodes.indexOf(e.from),
+      to: nodes.indexOf(e.to),
     })),
     view: {
       scale: scale,
@@ -258,88 +253,230 @@ function clearCache() {
 }
 
 
-/* ---------- NODE ---------- */
-function createNode(x, y, text = "New Node", className = "node") {
-  expandWorldIfNeeded(x, y);
-  const node = document.createElement("div");
-  node.className = className.replace("selected","");
-  node.className = className.replace("collapsed","");
-  if (activeTheme) {
-    node.classList.add("theme-" + activeTheme);
+function setNodeReference(node, url) {
+  const refSpan = node.querySelector(".node-ref");
+
+  if (!url) {
+    refSpan.innerHTML = "";
+    return;
   }
-  node.textContent = text;
-  node.style.left = x + "px";
-  node.style.top = y + "px";
-  node.dataset.hiddenByParent= "false";
-  node.dataset.collapsed = "false";
 
-  canvas.appendChild(node);
+  refSpan.innerHTML = `
+    <a href="${url}" target="_blank" class="ref-link">🔗</a>
+  `;
+}
+
+let el = document.getElementById('lineColor');
+el.setAttribute("value", rgbToHex("rgba(163,163,163,1)"))
+el.addEventListener('input', function() {  // I tried also onchange
+  resetTransform();
+  redraw();
+  applyTransform();
+});
+
+/* ---------- NODE ---------- */
+function createNode(x, y, text = "New Node", url = "", className = "node") {
+  expandWorldIfNeeded(x, y);
+  text = text.trim();
+  const node = {
+    text,
+    url,
+    x,
+    y,
+    className
+  };
+
   nodes.push(node);
+  renderNode(node);
+}
 
+function renderNode(node) {
+  // Append a node object to node
+  const nodeObj = document.createElement("div");
+  nodeObj.className = node.className;
+  nodeObj.className = nodeObj.className.replace("selected","");
+  nodeObj.className = nodeObj.className.replace("collapsed",""); 
+  nodeObj.style.left = node.x + "px";
+  nodeObj.style.top = node.y + "px";
+
+  //node.dataset.id = nodeObj.id;
+
+  // Render HTML here
+  nodeObj.innerHTML = `
+    <span class="node-text">${node.text}</span>
+    ${
+      nodeObj.url
+        ? `<a href="${node.url}" target="_blank" class="ref-link">🔗</a>`
+        : ""
+    }
+  `;
+  
+  canvas.appendChild(nodeObj);
+  node.el = nodeObj;
+  attachNodeEvents(node);
+
+}
+
+function edgeExists(fromNode, toNode) {
+  return edges.some(e => e.from === fromNode && e.to === toNode);
+}
+
+
+function attachNodeEvents(node) {
   // --- Drag ---
-  node.addEventListener("mousedown", e => {
-    draggingNode = node;
+  node.el.addEventListener("mousedown", e => {
+    if (e.target.tagName === "A") return;
+    draggingNode = node.el;
     offsetX = e.offsetX;
     offsetY = e.offsetY;
     e.stopPropagation();
   });
 
-  node.addEventListener("contextmenu", e => {
+  node.el.addEventListener("contextmenu", e => {
     e.preventDefault(); // disable browser menu
     toggleSubtree(node);
   });
 
   // --- Select / Connect ---
-  node.addEventListener("click", e => {
+  node.el.addEventListener("click", e => {
     e.stopPropagation();
 
     if (!selectedNode) {
-      selectNode(node);
+      selectNode(node.el);
       return;
     }
 
-    if (selectedNode === node) {
+    if (selectedNode === node.el) {
       clearSelection();
       return;
     }
 
     // CONNECT ONLY FROM LAST SELECTED
-    edges.push({ a: selectedNode, b: node });
+    if (!edgeExists(refnodeObj(selectedNode), refnodeObj(node.el))) {
+      edges.push({
+        from: refnodeObj(selectedNode),
+        to: refnodeObj(node.el)
+      });
+    }
     clearSelection();
   resetTransform();
   redraw();
   applyTransform();
-  saveToCache();
   });
 
   // --- Edit ---
-  node.addEventListener("dblclick", e => {
+  node.el.addEventListener("dblclick", e => {
     e.stopPropagation();
-    const txt = prompt("Edit text", node.textContent);
-    if (txt) node.textContent = txt;
-    requestAnimationFrame(() => {
-  resetTransform();
-  redraw();
-  applyTransform();
-  saveToCache();
-      //horizontalTreeLayout();
-    });
+
+    const currentText = node.el.querySelector(".node-text").textContent;
+    const currentRef = node.el.dataset.ref || "";
+
+    const newText = prompt("Edit text", currentText);
+    if (newText === null) return;
+
+    const newRef = prompt("Edit reference URL (optional)", currentRef);
+
+    node.el.querySelector(".node-text").textContent = newText;
+
+    node.el.dataset.ref = newRef || "";
+    setNodeReference(node.el, newRef);
+    resetTransform();
+    redraw();
+    applyTransform();
   });
+
 
   return node;
 }
 
+function rgbToHex(rgb) {
+  const result = rgb.match(/\d+/g);
+  if (!result) return "#000000";
+  return "#" + result
+    .slice(0, 3)
+    .map(x => (+x).toString(16).padStart(2, '0'))
+    .join('');
+}
+
 
 /* ---------- SELECTION ---------- */
-function selectNode(node) {
+function selectNode(nodeObj) {
   clearSelection();
-  selectedNode = node;
-  node.classList.add("selected");
+  selectedNode = nodeObj;
+  nodeObj.classList.add("selected");
+
+  const textSpan = nodeObj.querySelector(".node-text");
+
+  document.getElementById("editText").value =
+    textSpan ? textSpan.textContent.trim() : "";
+
+  document.getElementById("editURL").value =
+    nodeObj.dataset.ref || "";
+}
+
+function refnodeObj(nodeObj){
+  refnodes = nodes.filter(n => n.el.textContent  === nodeObj.textContent )  
+  if (!refnodes){ return ;}
+  return refnodes[0]
+}
+
+function applyChanges() {
+  if (!selectedNode) return;
+  currentNode = refnodeObj(selectedNode);
+  currentNode.text =
+    document.getElementById("editText").value.trim();
+
+  currentNode.url =
+    document.getElementById("editURL").value.trim();
+
+  
+  // Re-render just that node
+  selectedNode.remove()
+  renderNode(currentNode);
+  selectNode(currentNode.el)
+  //clearSelection();
+
+  resetTransform()
+  redraw();
+  applyTransform()
 }
 
 function clearSelection() {
   if (selectedNode) selectedNode.classList.remove("selected");
   selectedNode = null;
+}
+
+function getRoots(){
+  if (nodes.length === 0) return;
+  const children = new Map();
+  const indegree = new Map();
+  const subtree = new Map();
+
+  nodes.forEach(n => {
+    if (n.el.style.display === "none") return;
+    children.set(n, []);
+    indegree.set(n, 0);
+  });
+
+  edges.forEach(e => {
+    if (
+    e.from.el.style.display === "none" ||
+    e.to.el.style.display === "none"
+    ) {return;}
+    else{
+    children.get(e.from)?.push(e.to);
+    indegree.set(e.to, indegree.get(e.to) + 1);
+    }});
+
+  // Sort children alphabetically by text
+  children.forEach((kids, parent) => {
+    kids.sort((a, b) =>
+      a.text.localeCompare(b.text)
+    );
+  });
+
+  const roots = nodes.filter(n => indegree.get(n) === 0);
+  return roots
 }
 
 /* ---------- DRAW LINES ---------- */
@@ -349,22 +486,24 @@ function redraw() {
   const canvasRect = canvas.getBoundingClientRect();
 
   edges.forEach(e => {
-    if (
-      e.a.style.display === "none" ||
-      e.b.style.display === "none"
-    ) {
-      return;
-    }
-    const aRect = e.a.getBoundingClientRect();
-    const bRect = e.b.getBoundingClientRect();
+    const a = nodes.find(n => n === e.from);
+    const b = nodes.find(n => n === e.to);
+
+    if (a.el.style.display === "none"  || b.el.style.display === "none" ) return;
+
+    const aRect = a.el.getBoundingClientRect();
+    const bRect = b.el.getBoundingClientRect();
+
 
     // Source: right center
+    const x0 = aRect.left - canvasRect.left;
     const x1 = aRect.right - canvasRect.left;
-    const y1 = aRect.top + aRect.height / 2 - canvasRect.top;
+    const y1 = aRect.bottom - canvasRect.top;
+
 
     // Target: left center
-    const x2 = bRect.left - canvasRect.left;
-    const y2 = bRect.top + bRect.height / 2 - canvasRect.top;
+    const x2 = bRect.right - canvasRect.left;
+    const y2 = bRect.bottom - canvasRect.top;
 
     if (
       [x1, y1, x2, y2].some(v => Number.isNaN(v))
@@ -377,17 +516,18 @@ function redraw() {
       "path"
     );
 
+
     path.setAttribute(
       "d",
-      `M ${x1} ${y1}
-       H ${x1 + dx*0.5}
-       l ${dx*0.5} ${y2 - y1}
-       H ${x2}`
+      `M ${x0 - 40} ${y1}
+      L ${x1 + 40} ${y1}
+      L ${x1 + 40} ${y2}
+      L ${x2} ${y2}`
     );
 
     path.setAttribute("fill", "none");
-    path.setAttribute("stroke", "#555");
-    path.setAttribute("stroke-width", "2");
+    path.setAttribute("stroke", el.value || "#555");
+    path.setAttribute("stroke-width", "4");
 
     svg.appendChild(path);
   });
@@ -403,6 +543,8 @@ document.addEventListener("mousemove", e => {
   const x = (e.clientX - worldRect.left - offsetX * scale) / scale;
   const y = (e.clientY - worldRect.top - offsetY * scale) / scale;
 
+  draggingNode.x = x;
+  draggingNode.y = y;
   draggingNode.style.left = x + "px";
   draggingNode.style.top  = y + "px";
 
@@ -413,7 +555,7 @@ document.addEventListener("mousemove", e => {
 
 document.addEventListener("mouseup", () => {
   draggingNode = null;
-  if (!panning) saveToCache();
+  if (!panning) return;
 });
 
 /* ---------- EMPTY CLICK ONLY ---------- */
@@ -474,52 +616,38 @@ function applyTransform() {
     `translate(${panX}px, ${panY}px) scale(${scale})`;
 }
 
-/* ---------- CATEGORIES ---------- */
-document.getElementById("category").addEventListener("change", e => {
-  activeTheme = e.target.value;
-
-  // If a node is selected, apply immediately to it too
-  if (selectedNode) {
-    selectedNode.className = "node";
-    if (activeTheme) {
-      selectedNode.classList.add("theme-" + activeTheme);
-    }
-  }
-});
-
-
 
 /* ---------- KEYBOARD ---------- */
 document.addEventListener("keydown", e => {
   if (e.key === "Delete" && selectedNode) {
-    nodes = nodes.filter(n => n !== selectedNode);
-    edges = edges.filter(e => e.a !== selectedNode && e.b !== selectedNode);
+    let selNode = refnodeObj(selectedNode)
+    nodes = nodes.filter(n => n !== selNode);
+    edges = edges.filter(e => e.from !== selNode && e.to !== selNode);
     selectedNode.remove();
     clearSelection();
   resetTransform()
   redraw();
   applyTransform()
-  saveToCache();
   }
 });
 
 
 function getChildren(node) {
   return edges
-    .filter(e => e.a === node)
-    .map(e => e.b);
+    .filter(e => e.from === node)
+    .map(e => e.to);
 }
 
 function toggleSubtree(node) {
-  const collapsed = node.dataset.collapsed === "true";
-  node.dataset.collapsed = collapsed ? "false" : "true";
+  const collapsed = node.el.dataset.collapsed === "true";
+  node.el.dataset.collapsed = collapsed ? "false" : "true";
 
-  if (node.dataset.collapsed === "true") {
+  if (node.el.dataset.collapsed === "true") {
     hideSubtree(node);
-    node.classList.add("collapsed");
+    node.el.classList.add("collapsed");
   } else {
     showSubtree(node);
-    node.classList.remove("collapsed");
+    node.el.classList.remove("collapsed");
   }
   resetTransform()
   //horizontalTreeLayout();
@@ -530,8 +658,8 @@ function toggleSubtree(node) {
 
 function hideSubtree(node) {
   getChildren(node).forEach(child => {
-    child.style.display = "none";
-    child.dataset.hiddenByParent = "true";
+    child.el.style.display = "none";
+    child.el.dataset.hiddenByParent = "true";
     hideSubtree(child);
   });
   horizontalTreeLayout();
@@ -539,15 +667,15 @@ function hideSubtree(node) {
 
 function showSubtree(node) {
   getChildren(node).forEach(child => {
-    if (node.dataset.collapsed !== "true"){
-      if (child.dataset.collapsed !== "true") {
-        child.style.display = "block";
-        child.dataset.hiddenByParent = "false";
+    if (node.el.dataset.collapsed !== "true"){
+      if (child.el.dataset.collapsed !== "true") {
+        child.el.style.display = "block";
+        child.el.dataset.hiddenByParent = "false";
         showSubtree(child);
       }
     else {
-      child.style.display = "block";
-      child.dataset.hiddenByParent = "false";
+      child.el.style.display = "block";
+      child.el.dataset.hiddenByParent = "false";
     }}
   });
   horizontalTreeLayout();
@@ -575,10 +703,10 @@ function exportSVG() {
   let maxX = -Infinity, maxY = -Infinity;
   clearSelection(); // remove outline
   nodes.forEach(n => {
-    const x = parseFloat(n.style.left);
-    const y = parseFloat(n.style.top);
-    const w = n.offsetWidth;
-    const h = n.offsetHeight;
+    const x = parseFloat(n.el.style.left);
+    const y = parseFloat(n.el.style.top);
+    const w = n.el.offsetWidth;
+    const h = n.el.offsetHeight;
 
     minX = Math.min(minX, x);
     minY = Math.min(minY, y);
@@ -599,31 +727,31 @@ function exportSVG() {
 
   /* ---------- DRAW EDGES ---------- */
   edges.forEach(e => {
-    if (
-      e.a.style.display === "none" ||
-      e.b.style.display === "none"
-      ) {
-        return;
-      }
-    const ax = parseFloat(e.a.style.left) - minX + padding + e.a.offsetWidth;
-    const ay = parseFloat(e.a.style.top) - minY + padding + e.a.offsetHeight / 2;
+    const a = nodes.find(n => n === e.from);
+    const b = nodes.find(n => n === e.to);
 
-    const bx = parseFloat(e.b.style.left) - minX + padding;
-    const by = parseFloat(e.b.style.top) - minY + padding + e.b.offsetHeight / 2;
+    if (a.el.style.display === "none"  || b.el.style.display === "none" ) return;
 
-    const dx = Math.max(80, (bx - ax) * 0.5);
+    const ox = parseFloat(a.el.style.left) - minX + padding;
+    const ax = parseFloat(a.el.style.left) + a.el.offsetWidth - minX + padding;
+    const ay = parseFloat(a.el.style.top) + a.el.offsetHeight - minY;
+
+    const bx = parseFloat(b.el.style.left) + b.el.offsetWidth - minX + padding;
+    const by = parseFloat(b.el.style.top) + b.el.offsetHeight - minY;
+
+    const dx = Math.max(50, (bx - ax) * 0.5);
 
     const path = document.createElementNS(xmlns, "path");
     path.setAttribute(
       "d",
-      `M ${ax} ${ay}
-       C ${ax + dx} ${ay},
-         ${bx - dx} ${by},
-         ${bx} ${by}`
+      `M ${ox} ${ay}
+      L ${ax} ${ay}
+      L ${ax} ${by}
+      L ${bx} ${by}`
     );
 
     path.setAttribute("fill", "none");
-    path.setAttribute("stroke", "#555");
+    path.setAttribute("stroke", el.value || "#555");
     path.setAttribute("stroke-width", "2");
 
     svgExport.appendChild(path);
@@ -631,13 +759,10 @@ function exportSVG() {
 
   /* ---------- DRAW NODES ---------- */
   nodes.forEach(n => {
-    const x = parseFloat(n.style.left) - minX + padding;
-    const y = parseFloat(n.style.top) - minY + padding;
-    const w = n.offsetWidth;
-    const h = n.offsetHeight;
-
-    // Get computed styles (so themes export correctly)
-    const styles = getComputedStyle(n);
+    const x = parseFloat(n.el.style.left) - minX + padding;
+    const y = parseFloat(n.el.style.top) - minY;
+    const w = n.el.offsetWidth;
+    const h = n.el.offsetHeight;
 
     const rect = document.createElementNS(xmlns, "rect");
     rect.setAttribute("x", x);
@@ -645,8 +770,8 @@ function exportSVG() {
     rect.setAttribute("width", w);
     rect.setAttribute("height", h);
     rect.setAttribute("rx", 8);
-    rect.setAttribute("fill", styles.backgroundColor);
-    rect.setAttribute("stroke", "rgba(0,0,0,0.15)");
+    rect.setAttribute("fill", "transparent");
+    rect.setAttribute("stroke", "transparent");
 
     svgExport.appendChild(rect);
 
@@ -655,11 +780,11 @@ function exportSVG() {
     text.setAttribute("y", y + h / 2);
     text.setAttribute("text-anchor", "middle");
     text.setAttribute("dominant-baseline", "middle");
-    text.setAttribute("fill", styles.color);
+    text.setAttribute("fill", "rgba(0,0,0,1)");
     text.setAttribute("font-family", "Arial");
     text.setAttribute("font-size", "14");
 
-    text.textContent = n.textContent;
+    text.textContent = n.text;
 
     svgExport.appendChild(text);
   });
@@ -684,17 +809,18 @@ function exportSVG() {
 function exportJSON() {
   clearSelection(); // remove outline
   const data = {
-    nodes: nodes.map((n, idx) => ({
-      id: idx,           // unique index
-      text: n.textContent,
-      x: parseFloat(n.style.left),
-      y: parseFloat(n.style.top),
-      className: n.className
+    nodes: nodes.map(n => ({
+      text: n.text.trim,
+      url: n.url.trim,
+      x: parseFloat(n.el.style.left),
+      y: parseFloat(n.el.style.top),
+      className: n.el.className
     })),
     edges: edges.map(e => ({
-      from: nodes.indexOf(e.a),
-      to: nodes.indexOf(e.b)
+      from: nodes.indexOf(e.from),
+      to: nodes.indexOf(e.to),
     }))
+
   };
 
   const jsonStr = JSON.stringify(data, null, 2);
@@ -733,7 +859,12 @@ function loadJSON(data) {
 
   // Recreate nodes
   data.nodes.forEach(n => {
-    createNode(n.x, n.y, n.text ,n.className);
+    createNode(n.x, n.y, n.text, n.url, n.className);
+    const created = nodes[nodes.length - 1];
+    if (n.ref) {
+      created.dataset.ref = n.ref;
+      setNodeReference(created, n.ref);
+    }
   });
 
   // Recreate edges using node references
@@ -741,12 +872,10 @@ function loadJSON(data) {
     const fromNode = nodes[e.from];
     const toNode = nodes[e.to];
     if (fromNode && toNode) {
-      edges.push({ a: fromNode, b: toNode });
-  resetTransform();
-  redraw();
-  applyTransform();
-  clearSelection(); // remove outline
-  saveToCache();
+      edges.push({
+        from: fromNode,
+        to: toNode,
+      });
     }
   });
 
@@ -756,7 +885,6 @@ function loadJSON(data) {
   redraw();
   applyTransform();
   horizontalTreeLayout();
-  saveToCache();
   });
 }
 
@@ -775,44 +903,46 @@ function horizontalTreeLayout() {
   world.style.transform = "none";
 
   // Force layout flush
-  nodes.forEach(n => n.getBoundingClientRect());
+  nodes.forEach(n => n.el.getBoundingClientRect());
 
   const children = new Map();
   const indegree = new Map();
   const subtree = new Map();
 
   nodes.forEach(n => {
-    if (n.style.display === "none") return;
+    if (n.el.style.display === "none") return;
     children.set(n, []);
     indegree.set(n, 0);
   });
 
   edges.forEach(e => {
     if (
-    e.a.style.display === "none" ||
-    e.b.style.display === "none"
-    ) return;
-    children.get(e.a)?.push(e.b);
-    indegree.set(e.b, indegree.get(e.b) + 1);
-  });
+    e.from.el.style.display === "none" ||
+    e.to.el.style.display === "none"
+    ) {return;}
+    else{
+    children.get(e.from)?.push(e.to);
+    indegree.set(e.to, indegree.get(e.to) + 1);
+    }});
 
   // Sort children alphabetically by text
   children.forEach((kids, parent) => {
     kids.sort((a, b) =>
-      a.textContent.localeCompare(b.textContent)
+      a.text.localeCompare(b.text)
     );
   });
 
   const roots = nodes.filter(n => indegree.get(n) === 0);
 
-  const levelGap = 250;
-  const verticalGap = 60;
+  const levelGap = 250;   // horizontal spacing
+  const verticalGap = 50; // vertical spacing
+
 
   function computeHeight(node) {
     if (subtree.has(node)) return subtree.get(node);
 
     const kids = children.get(node);
-    const selfH = node.getBoundingClientRect().height;
+    const selfH = node.el.getBoundingClientRect().height;
 
     if (!kids || kids.length === 0) {
       subtree.set(node, selfH);
@@ -836,13 +966,13 @@ function horizontalTreeLayout() {
 
   function place(node, depth, topY) {
     const kids = children.get(node);
-    const nodeH = node.getBoundingClientRect().height;
+    const nodeH = node.el.getBoundingClientRect().height;
 
     let centerY;
 
     if (!kids || kids.length === 0) {
       // Leaf node
-      centerY = topY + nodeH / 2;
+      centerY = topY - nodeH / 2;
     } else {
       // Place children first
       let y = topY;
@@ -850,26 +980,28 @@ function horizontalTreeLayout() {
 
       kids.forEach(k => {
         place(k, depth + 1, y);
-        const childTop = parseFloat(k.style.top);
-        const childH = k.getBoundingClientRect().height;
-        childCenters.push(childTop + childH / 2);
+        const childTop = parseFloat(k.el.style.top);
+        const childH = k.el.getBoundingClientRect().height;
+        childCenters.push(childTop - childH / 2);
 
         y += subtree.get(k) + verticalGap;
       });
-
       // Parent centered exactly between first & last child center
       const firstCenter = childCenters[0];
       const lastCenter = childCenters[childCenters.length - 1];
       centerY = (firstCenter + lastCenter) / 2;
+      
     }
 
-    node.style.left = depth * levelGap + 150 + "px";
-    node.style.top = centerY - nodeH / 2 + "px";
+    node.el.style.left = depth * levelGap + "px";
+    node.el.style.top = centerY + nodeH / 2 + "px";
+
   }
 
   roots.forEach(r => {
     place(r, 0, cursorY);
     cursorY += subtree.get(r) + verticalGap * 2;
+
   });
 
   // 🔓 Restore transform
@@ -879,6 +1011,7 @@ function horizontalTreeLayout() {
   resetTransform()
   redraw();
   applyTransform()
+  saveToCache()
 }
 
 
@@ -890,7 +1023,7 @@ function removeLastConnection() {
   resetTransform();
   redraw();
   applyTransform();  // horizontalTreeLayout();
-  saveToCache();
+  saveToCache()
 }
 
 window.addEventListener("load", () => {
