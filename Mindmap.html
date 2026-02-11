@@ -825,8 +825,8 @@ function exportJSON() {
   clearSelection(); // remove outline
   const data = {
     nodes: nodes.map(n => ({
-      text: n.text.trim,
-      url: n.url.trim,
+      text: n.text.trim(),
+      url: n.url.trim(),
       x: parseFloat(n.el.style.left),
       y: parseFloat(n.el.style.top),
       className: n.el.className
@@ -1056,3 +1056,4 @@ window.addEventListener("load", () => {
 
 </body>
 </html>
+
