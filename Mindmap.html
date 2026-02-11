@@ -305,7 +305,7 @@ function renderNode(node) {
   nodeObj.innerHTML = `
     <span class="node-text">${node.text}</span>
     ${
-      nodeObj.url
+      node.url
         ? `<a href="${node.url}" target="_blank" class="ref-link">🔗</a>`
         : ""
     }
@@ -346,15 +346,15 @@ function attachNodeEvents(node) {
       return;
     }
 
-    if (selectedNode === node.el) {
+    if (selectedNode === refnodeObj(node.el)) {
       clearSelection();
       return;
     }
 
     // CONNECT ONLY FROM LAST SELECTED
-    if (!edgeExists(refnodeObj(selectedNode), refnodeObj(node.el))) {
+    if (!edgeExists(selectedNode, refnodeObj(node.el))) {
       edges.push({
-        from: refnodeObj(selectedNode),
+        from: selectedNode,
         to: refnodeObj(node.el)
       });
     }
@@ -398,31 +398,30 @@ function rgbToHex(rgb) {
     .join('');
 }
 
-
-/* ---------- SELECTION ---------- */
-function selectNode(nodeObj) {
-  clearSelection();
-  selectedNode = nodeObj;
-  nodeObj.classList.add("selected");
-
-  const textSpan = nodeObj.querySelector(".node-text");
-
-  document.getElementById("editText").value =
-    textSpan ? textSpan.textContent.trim() : "";
-
-  document.getElementById("editURL").value =
-    nodeObj.dataset.ref || "";
-}
-
 function refnodeObj(nodeObj){
   refnodes = nodes.filter(n => n.el.textContent  === nodeObj.textContent )  
   if (!refnodes){ return ;}
   return refnodes[0]
 }
 
+/* ---------- SELECTION ---------- */
+function selectNode(nodeObj) {
+  clearSelection();
+  selectedNode = refnodeObj(nodeObj);
+  selectedNode.el.classList.add("selected");
+
+  const textSpan = selectedNode.text;
+
+  document.getElementById("editText").value =
+    textSpan ? textSpan.trim() : "";
+
+  document.getElementById("editURL").value =
+    selectedNode.url || "";
+}
+
 function applyChanges() {
   if (!selectedNode) return;
-  currentNode = refnodeObj(selectedNode);
+  currentNode = selectedNode;
   currentNode.text =
     document.getElementById("editText").value.trim();
 
@@ -431,7 +430,7 @@ function applyChanges() {
 
   
   // Re-render just that node
-  selectedNode.remove()
+  selectedNode.el.remove()
   renderNode(currentNode);
   selectNode(currentNode.el)
   //clearSelection();
@@ -442,7 +441,7 @@ function applyChanges() {
 }
 
 function clearSelection() {
-  if (selectedNode) selectedNode.classList.remove("selected");
+  if (selectedNode) selectedNode.el.classList.remove("selected");
   selectedNode = null;
 }
 
@@ -620,7 +619,7 @@ function applyTransform() {
 /* ---------- KEYBOARD ---------- */
 document.addEventListener("keydown", e => {
   if (e.key === "Delete" && selectedNode) {
-    let selNode = refnodeObj(selectedNode)
+    let selNode = selectedNode
     nodes = nodes.filter(n => n !== selNode);
     edges = edges.filter(e => e.from !== selNode && e.to !== selNode);
     selectedNode.remove();
