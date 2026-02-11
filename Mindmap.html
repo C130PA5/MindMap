@@ -222,7 +222,8 @@ function expandWorldIfNeeded(x, y) {
 function saveToCache() {
   clearSelection(); // remove outline
   const data = {
-    nodes: nodes.map(n => ({
+    nodes: nodes.map((n, idx) => ({
+      id: idx,
       text: n.text.trim(),
       url: n.url.trim(),
       x: parseFloat(n.el.style.left),
@@ -246,7 +247,7 @@ function saveToCache() {
 function loadFromCache() {
   const saved = localStorage.getItem("mindmap-autosave");
   if (!saved) {
-    alert("No cached version found.");
+    //alert("No cached version found.");
     return;
   }
 
@@ -264,7 +265,7 @@ function loadFromCache() {
 
 function clearCache() {
   localStorage.removeItem("mindmap-autosave");
-  loadFromCache()
+  location.replace(location)
 
 }
 
@@ -824,7 +825,8 @@ function exportSVG() {
 function exportJSON() {
   clearSelection(); // remove outline
   const data = {
-    nodes: nodes.map(n => ({
+    nodes: nodes.map((n, idx) => ({
+      id: idx, // unique index
       text: n.text.trim(),
       url: n.url.trim(),
       x: parseFloat(n.el.style.left),
@@ -1056,4 +1058,3 @@ window.addEventListener("load", () => {
 
 </body>
 </html>
-
