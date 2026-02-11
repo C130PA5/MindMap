@@ -18,14 +18,26 @@ html, body {
   color: white;
   padding: 8px;
   display: flex;
-  gap: 8px;
+  justify-content: space-between; /* key line */
   align-items: center;
 }
-
+.toolbar-left{
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+},
+.toolbar-right {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
 button, select {
   padding: 5px 8px;
 }
-
+input {
+  vertical-align:middle;
+  padding: 0px 1px;
+}
 #viewport {
   width: 100%;
   height: calc(100% - 42px);
@@ -107,7 +119,7 @@ svg {
 #inspector {
   position: absolute;
   right: 0;
-  top: 42px;
+  top: 46px;
   width: 260px;
   height: calc(100% - 42px);
   background: #f8f9fa;
@@ -138,18 +150,21 @@ svg {
 <body>
 
 <div id="toolbar">
-  <button onclick="exportPNG()">Export PNG</button>
-  <button onclick="exportSVG()">Export SVG</button>
-  <button onclick="exportJSON()">Export JSON</button>
-  <button onclick="importJSON()">Import JSON</button>
-  <button onclick="horizontalTreeLayout()">Adjust Layout</button>
-  <button onclick="removeLastConnection()">Remove last connection</button>
-  <button onclick="loadFromCache()">Reload Cached</button>
-  <button onclick="clearCache()">Clear Cache</button>
+  <div id="toolbar-left">
+    <button onclick="exportPNG()">Export PNG</button>
+    <button onclick="exportSVG()">Export SVG</button>
+    <button onclick="exportJSON()">Export JSON</button>
+    <button onclick="importJSON()">Import JSON</button>
+    <button onclick="horizontalTreeLayout()">Adjust Layout</button>
+    <button onclick="removeLastConnection()">Remove last connection</button>
+    <input type="color" id="lineColor">
+  </div>
 
-  <input type="color" id="lineColor">
+  <div id="toolbar-right">
+    <button onclick="loadFromCache()">Reload Cached</button>
+    <button onclick="clearCache()">New Map</button>
 
-
+  </div>
 </div>
 
 <div id="viewport">
@@ -249,7 +264,8 @@ function loadFromCache() {
 
 function clearCache() {
   localStorage.removeItem("mindmap-autosave");
-  alert("Cache cleared.");
+  loadFromCache()
+
 }
 
 
