@@ -295,7 +295,9 @@ el.addEventListener('input', function() {  // I tried also onchange
 function createNode(x, y, text = "New Node", url = "", className = "node") {
   expandWorldIfNeeded(x, y);
   text = text.trim();
+  id = nodes.length + 1
   const node = {
+    id,
     text,
     url,
     x,
@@ -316,7 +318,7 @@ function renderNode(node) {
   nodeObj.style.left = node.x + "px";
   nodeObj.style.top = node.y + "px";
 
-  //node.dataset.id = nodeObj.id;
+  nodeObj.id = node.id;
 
   // Render HTML here
   nodeObj.innerHTML = `
@@ -382,28 +384,6 @@ function attachNodeEvents(node) {
   });
 
   // --- Edit ---
-  node.el.addEventListener("dblclick", e => {
-    e.stopPropagation();
-
-    const currentText = node.el.querySelector(".node-text").textContent;
-    const currentRef = node.el.dataset.ref || "";
-
-    const newText = prompt("Edit text", currentText);
-    if (newText === null) return;
-
-    const newRef = prompt("Edit reference URL (optional)", currentRef);
-
-    node.el.querySelector(".node-text").textContent = newText;
-
-    node.el.dataset.ref = newRef || "";
-    setNodeReference(node.el, newRef);
-    resetTransform();
-    redraw();
-    applyTransform();
-  });
-
-
-  return node;
 }
 
 function rgbToHex(rgb) {
@@ -416,7 +396,7 @@ function rgbToHex(rgb) {
 }
 
 function refnodeObj(nodeObj){
-  refnodes = nodes.filter(n => n.el.textContent  === nodeObj.textContent )  
+  refnodes = nodes.filter(n => n.el.id  === nodeObj.id )  
   if (!refnodes){ return ;}
   return refnodes[0]
 }
