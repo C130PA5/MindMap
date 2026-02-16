@@ -74,11 +74,14 @@ input {
   border-radius: 0;
   padding: 2px 6px;
   min-width: unset;
-  max-width: 600px;
+  max-width: 450px;
   min-height: 30px;
-  text-align: left;
+  text-align: center;
   line-height: 1.4;
   cursor: move;
+  text-wrap: wrap;
+  inline-size: 90%;
+  overflow-wrap: break-word;
 }
 
 .node-ref {
@@ -566,6 +569,7 @@ canvas.addEventListener("dblclick", e => {
 
 
   createNode(x, y);
+  selectNode(nodes[nodes.length - 1].el)
 });
 
 /* ---------- ZOOM ---------- */
@@ -619,7 +623,7 @@ document.addEventListener("keydown", e => {
     let selNode = selectedNode
     nodes = nodes.filter(n => n !== selNode);
     edges = edges.filter(e => e.from !== selNode && e.to !== selNode);
-    selectedNode.remove();
+    selectedNode.el.remove();
     clearSelection();
   resetTransform()
   redraw();
@@ -645,10 +649,9 @@ function toggleSubtree(node) {
     showSubtree(node);
     node.el.classList.remove("collapsed");
   }
-  resetTransform()
-  //horizontalTreeLayout();
-  redraw();
-  applyTransform()  
+
+  horizontalTreeLayout();
+
 
 }
 
@@ -931,9 +934,13 @@ function horizontalTreeLayout() {
 
   const roots = nodes.filter(n => indegree.get(n) === 0);
 
-  const levelGap = 250;   // horizontal spacing
+  const minlevelGap = 250;   // horizontal spacing
   const verticalGap = 50; // vertical spacing
+  const maxWidth = 600;
+  let levelGap = nodes.map(n => n.el.getBoundingClientRect().width).sort((a,b) => a > b);
+  levelGap = Math.max(minlevelGap, Math.max(levelGap[levelGap.length - 1])+100);
 
+  levelGap = Math.min(levelGap, maxWidth)
 
   function computeHeight(node) {
     if (subtree.has(node)) return subtree.get(node);
@@ -979,19 +986,22 @@ function horizontalTreeLayout() {
         place(k, depth + 1, y);
         const childTop = parseFloat(k.el.style.top);
         const childH = k.el.getBoundingClientRect().height;
-        childCenters.push(childTop - childH / 2);
+        childCenters.push(childTop + childH / 2);
 
         y += subtree.get(k) + verticalGap;
       });
       // Parent centered exactly between first & last child center
       const firstCenter = childCenters[0];
       const lastCenter = childCenters[childCenters.length - 1];
+      if (firstCenter === lastCenter){
+        centerY = firstCenter - (nodeH - kids[0].el.getBoundingClientRect().height)/2;
+      } else {
       centerY = (firstCenter + lastCenter) / 2;
-      
+      }
     }
 
     node.el.style.left = depth * levelGap + "px";
-    node.el.style.top = centerY + nodeH / 2 + "px";
+    node.el.style.top = centerY - nodeH / 2 + "px";
 
   }
 
