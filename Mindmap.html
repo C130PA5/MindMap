@@ -818,6 +818,7 @@ function showSubtree(node) {
 function exportPNG() {
   if (nodes.length === 0) return;
 
+  resetTransform()
   clearSelection();
 
   const padding = 40;
@@ -855,6 +856,7 @@ function exportPNG() {
     link.href = canvasExport.toDataURL("image/png");
     link.click();
   });
+  applyTransform()
 }
 
 
