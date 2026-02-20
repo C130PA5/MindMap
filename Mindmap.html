@@ -31,6 +31,12 @@ html, body {
   justify-content: flex-end;
   gap: 8px;
 }
+
+#colorPalette {
+  display: flex;
+  flex-wrap: wrap;
+}
+
 button, select {
   padding: 5px 8px;
 }
@@ -162,7 +168,7 @@ svg {
   <input type="text" id="editURL">
 
   <label>Text Color</label>
-  <input type="color" id="editColor">
+  <div id="colorPalette"></div>
 
 </div>
 
@@ -200,6 +206,18 @@ const canvas = document.getElementById("canvas");
 let svg = document.getElementById("lines");
 const viewport = document.getElementById("viewport");
 
+const paletteColors = [
+  "#000000",
+  "#1f77b4",
+  "#2ca02c",
+  "#d62728",
+  "#9467bd",
+  "#ff7f0e",
+  "#17becf",
+  "#e377c2",
+  "#7f7f7f"
+];
+
 let nodes = [];
 let edges = [];
 let primaryNode = null;
@@ -211,6 +229,37 @@ let scale = 1;
 let panX = 0;
 let panY = 0;
 
+const palette = document.getElementById("colorPalette");
+paletteColors.forEach(color => {
+  const swatch = document.createElement("div");
+  swatch.style.width = "22px";
+  swatch.style.height = "22px";
+  swatch.style.borderRadius = "50%";
+  swatch.style.background = color;
+  swatch.style.cursor = "pointer";
+  swatch.style.display = "inline-block";
+  swatch.style.margin = "4px";
+  swatch.style.border = "2px solid transparent";
+
+  swatch.addEventListener("click", () => {
+    applyColorToSelection(color);
+  });
+
+  palette.appendChild(swatch);
+});
+
+function applyColorToSelection(color) {
+  if (selectedNodes.size === 0) return;
+
+  selectedNodes.forEach(node => {
+    node.color = color;
+    node.el.style.color = color;
+  });
+
+  resetTransform();
+  redraw();
+  applyTransform();
+}
 
 /* ---------- CACHING ---------- */
 function saveToCache() {
@@ -415,7 +464,6 @@ function refnodeObj(nodeObj){
 
 const editText = document.getElementById("editText");
 const editURL = document.getElementById("editURL");
-const editColor = document.getElementById("editColor");
 editText.addEventListener("input", () => {
   if (selectedNodes.size !== 1) return;
 
@@ -449,25 +497,11 @@ editURL.addEventListener("input", () => {
 
 });
 
-editColor.addEventListener("input", () => {
-  if (selectedNodes.size === 0) return;
-
-  selectedNodes.forEach(node => {
-    node.color = editColor.value;
-    node.el.style.color = node.color;
-  });
-
-  resetTransform();
-  redraw();
-  applyTransform();
-  saveToCache();
-});
 
 function updateInspector() {
   if (selectedNodes.size !== 1) {
     editText.value = "";
     editURL.value = "";
-    editColor.value = "#000000";
     return;
   }
 
@@ -475,7 +509,6 @@ function updateInspector() {
 
   editText.value = first.text || "";
   editURL.value = first.url || "";
-  editColor.value = first.color || "#000000";
 }
 
 
@@ -514,12 +547,11 @@ function applyChanges() {
 
   const newText = document.getElementById("editText").value.trim();
   const newURL = document.getElementById("editURL").value.trim();
-  const newColor = document.getElementById("editColor").value;
 
   selectedNodes.forEach(node => {
     node.text = newText || node.text;
     node.url = newURL || node.url;
-    node.color = newColor;
+    node.color = node.color;
 
     node.el.style.color = newColor;
     node.el.querySelector(".node-text").textContent = node.text;
