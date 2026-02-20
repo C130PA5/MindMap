@@ -418,6 +418,9 @@ node.el.addEventListener("click", e => {
   // If nothing selected yet → select only
   if (selectedNodes.size === 0) {
     selectNode(node.el, false);
+    // ✨ Focus text editor immediately
+    editText.focus();
+    editText.select();   // optional: auto-select placeholder text
     return;
   }
 
@@ -680,16 +683,20 @@ document.addEventListener("mouseup", () => {
 canvas.addEventListener("dblclick", e => {
   if (e.target !== canvas) return;
 
-  const worldRect = world.getBoundingClientRect();
-
-  // Convert screen → world coordinates
   const x = (e.clientX - panX) / scale;
   const y = (e.clientY - panY) / scale;
 
-
   createNode(x, y);
-  selectNode(nodes[nodes.length - 1].el)
+
+  const newNode = nodes[nodes.length - 1];
+
+  selectNode(newNode.el);
+
+  // ✨ Focus text editor immediately
+  editText.focus();
+  editText.select();   // optional: auto-select placeholder text
 });
+
 
 /* ---------- ZOOM ---------- */
 viewport.addEventListener("wheel", e => {
