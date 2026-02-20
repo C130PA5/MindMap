@@ -21,12 +21,12 @@ html, body {
   justify-content: space-between; /* key line */
   align-items: center;
 }
-.toolbar-left{
+#toolbar-left{
   display: flex;
   justify-content: flex-start;
   gap: 8px;
-},
-.toolbar-right {
+}
+#toolbar-right {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
@@ -52,12 +52,11 @@ input {
 
 #world {
   position: relative;
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
+  width: 5000px;
+  height: 5000px;
   transform-origin: 0 0;
 }
+
 #canvas {
   position: relative;
   width: 100%;
@@ -74,8 +73,10 @@ input {
   border-radius: 0;
   padding: 2px 6px;
   min-width: unset;
-  max-width: 450px;
+  max-width: 350px;
   min-height: 30px;
+  font-size: x-large;
+  font-weight: bold;
   text-align: center;
   line-height: 1.4;
   cursor: move;
@@ -122,7 +123,7 @@ svg {
 #inspector {
   position: absolute;
   right: 0;
-  top: 46px;
+  top: 48px;
   width: 260px;
   height: calc(100% - 42px);
   background: #f8f9fa;
@@ -151,6 +152,19 @@ svg {
 </head>
 
 <body>
+<div id="inspector">
+  <h3>Node Editor</h3>
+
+  <label>Label</label>
+  <textarea id="editText" rows="4"></textarea>
+
+  <label>Reference URL</label>
+  <input type="text" id="editURL">
+
+  <label>Text Color</label>
+  <input type="color" id="editColor">
+
+</div>
 
 <div id="toolbar">
   <div id="toolbar-left">
@@ -158,6 +172,7 @@ svg {
     <button onclick="exportSVG()">Export SVG</button>
     <button onclick="exportJSON()">Export JSON</button>
     <button onclick="importJSON()">Import JSON</button>
+    <button onclick="fitToWindow()">Fit to Window</button>
     <button onclick="horizontalTreeLayout()">Adjust Layout</button>
     <button onclick="removeLastConnection()">Remove last connection</button>
     <input type="color" id="lineColor">
@@ -177,17 +192,7 @@ svg {
     </div>
   </div>
 
-<div id="inspector">
-  <h3>Node Editor</h3>
 
-  <label>Label</label>
-  <textarea id="editText" rows="4"></textarea>
-
-  <label>Reference URL</label>
-  <input type="text" id="editURL">
-
-  <button onclick="applyChanges()">Apply</button>
-</div>
 
 
 <script>
@@ -197,7 +202,8 @@ const viewport = document.getElementById("viewport");
 
 let nodes = [];
 let edges = [];
-let selectedNode = null;
+let primaryNode = null;
+let selectedNodes = new Set();
 let draggingNode = null;
 let offsetX, offsetY;
 
@@ -205,21 +211,6 @@ let scale = 1;
 let panX = 0;
 let panY = 0;
 
-/* ---------- World Expansion ---------- */
-function expandWorldIfNeeded(x, y) {
-  const padding = 500;
-
-  const currentWidth = world.offsetWidth;
-  const currentHeight = world.offsetHeight;
-
-  if (x + padding > currentWidth) {
-    world.style.width = currentWidth + 2000 + "px";
-  }
-
-  if (y + padding > currentHeight) {
-    world.style.height = currentHeight + 2000 + "px";
-  }
-}
 
 /* ---------- CACHING ---------- */
 function saveToCache() {
@@ -231,7 +222,8 @@ function saveToCache() {
       url: n.url.trim(),
       x: parseFloat(n.el.style.left),
       y: parseFloat(n.el.style.top),
-      className: n.el.className
+      className: n.el.className,
+      color: n.color
     })),
     edges: edges.map(e => ({
       from: nodes.indexOf(e.from),
@@ -295,8 +287,7 @@ el.addEventListener('input', function() {  // I tried also onchange
 });
 
 /* ---------- NODE ---------- */
-function createNode(x, y, text = "New Node", url = "", className = "node") {
-  expandWorldIfNeeded(x, y);
+function createNode(x, y, text="New Node", url="", className="node", color="#000000") {
   text = text.trim();
   id = nodes.length + 1
   const node = {
@@ -305,6 +296,7 @@ function createNode(x, y, text = "New Node", url = "", className = "node") {
     url,
     x,
     y,
+    color,
     className
   };
 
@@ -320,6 +312,7 @@ function renderNode(node) {
   nodeObj.className = nodeObj.className.replace("collapsed",""); 
   nodeObj.style.left = node.x + "px";
   nodeObj.style.top = node.y + "px";
+  nodeObj.style.color = node.color || "#000000";
 
   nodeObj.id = node.id;
 
@@ -360,38 +353,54 @@ function attachNodeEvents(node) {
   });
 
   // --- Select / Connect ---
-  node.el.addEventListener("click", e => {
-    e.stopPropagation();
+node.el.addEventListener("click", e => {
+  e.stopPropagation();
 
-    if (!selectedNode) {
-      selectNode(node.el);
-      return;
-    }
+  const multi = e.ctrlKey || e.metaKey;
 
-    if (selectedNode === refnodeObj(node.el)) {
-      clearSelection();
-      return;
-    }
+  // If multi-select key pressed → only select
+  if (multi) {
+    selectNode(node.el, true);
+    return;
+  }
 
-    // CONNECT ONLY FROM LAST SELECTED
-    if (!edgeExists(selectedNode, refnodeObj(node.el))) {
-      edges.push({
-        from: selectedNode,
-        to: refnodeObj(node.el)
-      });
-    }
+  const clickedNode = refnodeObj(node.el);
+
+  // If nothing selected yet → select only
+  if (selectedNodes.size === 0) {
+    selectNode(node.el, false);
+    return;
+  }
+
+  // If clicking same primary → clear selection
+  if (primaryNode === clickedNode) {
     clearSelection();
-  resetTransform();
-  redraw();
-  applyTransform();
-  });
+    primaryNode = null;
+    return;
+  }
 
+  // CONNECT from primary to clicked
+  if (primaryNode && !edgeExists(primaryNode, clickedNode)) {
+    edges.push({
+      from: primaryNode,
+      to: clickedNode
+    });
+
+    resetTransform();
+    redraw();
+    applyTransform();
+    saveToCache();
+  }
+
+  clearSelection();
+  primaryNode = null;
+});
   // --- Edit ---
 }
 
 function rgbToHex(rgb) {
   const result = rgb.match(/\d+/g);
-  if (!result) return "#000000";
+  if (!result) return "#f4f6f8";
   return "#" + result
     .slice(0, 3)
     .map(x => (+x).toString(16).padStart(2, '0'))
@@ -404,46 +413,130 @@ function refnodeObj(nodeObj){
   return refnodes[0]
 }
 
-/* ---------- SELECTION ---------- */
-function selectNode(nodeObj) {
-  clearSelection();
-  selectedNode = refnodeObj(nodeObj);
-  selectedNode.el.classList.add("selected");
+const editText = document.getElementById("editText");
+const editURL = document.getElementById("editURL");
+const editColor = document.getElementById("editColor");
+editText.addEventListener("input", () => {
+  if (selectedNodes.size === 0) return;
 
-  const textSpan = selectedNode.text;
+  selectedNodes.forEach(node => {
+    node.text = editText.value;
+    const textSpan = node.el.querySelector(".node-text");
+    if (textSpan) textSpan.textContent = node.text;
+  });
 
-  document.getElementById("editText").value =
-    textSpan ? textSpan.trim() : "";
+  resetTransform();
+  redraw();
+  applyTransform();
+  saveToCache();
+});
 
-  document.getElementById("editURL").value =
-    selectedNode.url || "";
+editURL.addEventListener("input", () => {
+  if (selectedNodes.size === 0) return;
+
+  selectedNodes.forEach(node => {
+    node.url = editURL.value;
+
+    // Remove old link
+    const oldLink = node.el.querySelector(".ref-link");
+    if (oldLink) oldLink.remove();
+
+    // Add new link if URL exists
+    if (node.url.trim() !== "") {
+      const link = document.createElement("a");
+      link.href = node.url;
+      link.target = "_blank";
+      link.className = "ref-link";
+      link.textContent = "🔗";
+      node.el.appendChild(link);
+    }
+  });
+
+  saveToCache();
+});
+
+editColor.addEventListener("input", () => {
+  if (selectedNodes.size === 0) return;
+
+  selectedNodes.forEach(node => {
+    node.color = editColor.value;
+    node.el.style.color = node.color;
+  });
+
+  resetTransform();
+  redraw();
+  applyTransform();
+  saveToCache();
+});
+
+function updateInspector() {
+  if (selectedNodes.size === 0) {
+    editText.value = "";
+    editURL.value = "";
+    editColor.value = "#000000";
+    return;
+  }
+
+  const first = [...selectedNodes][0];
+
+  editText.value = first.text || "";
+  editURL.value = first.url || "";
+  editColor.value = first.color || "#000000";
 }
 
+
+
+function selectNode(nodeObj, multi = false) {
+  const node = refnodeObj(nodeObj);
+  if (!node) return;
+
+  if (!multi) {
+    clearSelection();
+  }
+
+  if (selectedNodes.has(node)) {
+    selectedNodes.delete(node);
+    node.el.classList.remove("selected");
+  } else {
+    selectedNodes.add(node);
+    node.el.classList.add("selected");
+  }
+
+  // The last clicked node becomes primary
+  primaryNode = node;
+
+  updateInspector();
+}
+
+
+function clearSelection() {
+  nodes.forEach(n => n.el.classList.remove("selected"));
+  selectedNodes.clear();
+}
+
+
 function applyChanges() {
-  if (!selectedNode) return;
-  currentNode = selectedNode;
-  currentNode.text =
-    document.getElementById("editText").value.trim();
+  if (selectedNodes.size === 0) return;
 
-  currentNode.url =
-    document.getElementById("editURL").value.trim();
+  const newText = document.getElementById("editText").value.trim();
+  const newURL = document.getElementById("editURL").value.trim();
+  const newColor = document.getElementById("editColor").value;
 
-  
-  // Re-render just that node
-  selectedNode.el.remove()
-  renderNode(currentNode);
-  selectNode(currentNode.el)
-  //clearSelection();
+  selectedNodes.forEach(node => {
+    node.text = newText || node.text;
+    node.url = newURL || node.url;
+    node.color = newColor;
+
+    node.el.style.color = newColor;
+    node.el.querySelector(".node-text").textContent = node.text;
+  });
 
   resetTransform()
   redraw();
   applyTransform()
+  saveToCache();
 }
 
-function clearSelection() {
-  if (selectedNode) selectedNode.el.classList.remove("selected");
-  selectedNode = null;
-}
 
 function getRoots(){
   if (nodes.length === 0) return;
@@ -619,11 +712,13 @@ function applyTransform() {
 
 /* ---------- KEYBOARD ---------- */
 document.addEventListener("keydown", e => {
-  if (e.key === "Delete" && selectedNode) {
-    let selNode = selectedNode
+  if (e.key === "Delete" && selectedNodes) {
+    selectedNodes.forEach(selNode => {
     nodes = nodes.filter(n => n !== selNode);
     edges = edges.filter(e => e.from !== selNode && e.to !== selNode);
-    selectedNode.el.remove();
+    selNode.el.remove()
+    })
+
     clearSelection();
   resetTransform()
   redraw();
@@ -781,7 +876,8 @@ function exportSVG() {
     text.setAttribute("dominant-baseline", "middle");
     text.setAttribute("fill", "rgba(0,0,0,1)");
     text.setAttribute("font-family", "Arial");
-    text.setAttribute("font-size", "14");
+    text.setAttribute("font-size", "x-large");
+    text.setAttribute("font-weight", "bold");
 
     text.textContent = n.text;
 
@@ -814,7 +910,8 @@ function exportJSON() {
       url: n.url.trim(),
       x: parseFloat(n.el.style.left),
       y: parseFloat(n.el.style.top),
-      className: n.el.className
+      className: n.el.className,
+      color: n.color
     })),
     edges: edges.map(e => ({
       from: nodes.indexOf(e.from),
@@ -859,7 +956,7 @@ function loadJSON(data) {
 
   // Recreate nodes
   data.nodes.forEach(n => {
-    createNode(n.x, n.y, n.text, n.url, n.className);
+    createNode(n.x, n.y, n.text, n.url, n.className, n.color);
     const created = nodes[nodes.length - 1];
     if (n.ref) {
       created.dataset.ref = n.ref;
@@ -936,7 +1033,7 @@ function horizontalTreeLayout() {
 
   const minlevelGap = 250;   // horizontal spacing
   const verticalGap = 50; // vertical spacing
-  const maxWidth = 600;
+  const maxWidth = 450;
   let levelGap = nodes.map(n => n.el.getBoundingClientRect().width).sort((a,b) => a > b);
   levelGap = Math.max(minlevelGap, Math.max(levelGap[levelGap.length - 1])+100);
 
@@ -1021,6 +1118,42 @@ function horizontalTreeLayout() {
   saveToCache()
 }
 
+function fitToWindow() {
+  if (nodes.length === 0) return;
+
+  let minX = Infinity, minY = Infinity;
+  let maxX = -Infinity, maxY = -Infinity;
+
+  nodes.forEach(n => {
+    if (n.el.style.display === "none") return;
+
+    const x = parseFloat(n.el.style.left);
+    const y = parseFloat(n.el.style.top);
+    const w = n.el.offsetWidth;
+    const h = n.el.offsetHeight;
+
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x + w);
+    maxY = Math.max(maxY, y + h);
+  });
+
+  const worldWidth = maxX - minX;
+  const worldHeight = maxY - minY;
+
+  const viewWidth = viewport.clientWidth;
+  const viewHeight = viewport.clientHeight;
+
+  const scaleX = viewWidth / worldWidth;
+  const scaleY = viewHeight / worldHeight;
+
+  scale = Math.min(scaleX, scaleY) * 0.9; // padding
+
+  panX = -minX * scale + (viewWidth - worldWidth * scale) / 2;
+  panY = -minY * scale + (viewHeight - worldHeight * scale) / 2;
+
+  applyTransform();
+}
 
 function removeLastConnection() {
   if (edges.length === 0) return;
