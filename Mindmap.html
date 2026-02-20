@@ -417,22 +417,17 @@ const editText = document.getElementById("editText");
 const editURL = document.getElementById("editURL");
 const editColor = document.getElementById("editColor");
 editText.addEventListener("input", () => {
-  if (selectedNodes.size === 0) return;
+  if (selectedNodes.size !== 1) return;
 
   selectedNodes.forEach(node => {
     node.text = editText.value;
     const textSpan = node.el.querySelector(".node-text");
     if (textSpan) textSpan.textContent = node.text;
   });
-
-  resetTransform();
-  redraw();
-  applyTransform();
-  saveToCache();
 });
 
 editURL.addEventListener("input", () => {
-  if (selectedNodes.size === 0) return;
+  if (selectedNodes.size !== 1) return;
 
   selectedNodes.forEach(node => {
     node.url = editURL.value;
@@ -452,7 +447,6 @@ editURL.addEventListener("input", () => {
     }
   });
 
-  saveToCache();
 });
 
 editColor.addEventListener("input", () => {
@@ -470,7 +464,7 @@ editColor.addEventListener("input", () => {
 });
 
 function updateInspector() {
-  if (selectedNodes.size === 0) {
+  if (selectedNodes.size !== 1) {
     editText.value = "";
     editURL.value = "";
     editColor.value = "#000000";
@@ -723,6 +717,12 @@ document.addEventListener("keydown", e => {
   resetTransform()
   redraw();
   applyTransform()
+  }
+  // ⎋ ESC clears selection
+  if (e.key === "Escape") {
+    clearSelection();
+    primaryNode = null;
+    updateInspector();
   }
 });
 
