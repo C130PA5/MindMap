@@ -779,14 +779,47 @@ function showSubtree(node) {
 
 /* ---------- EXPORT PNG ---------- */
 function exportPNG() {
-  clearSelection(); // remove outline
-  html2canvas(world).then(c => {
+  if (nodes.length === 0) return;
+
+  clearSelection();
+
+  const padding = 40;
+
+  let minX = Infinity, minY = Infinity;
+  let maxX = -Infinity, maxY = -Infinity;
+
+  nodes.forEach(n => {
+    if (n.el.style.display === "none") return;
+
+    const x = parseFloat(n.el.style.left);
+    const y = parseFloat(n.el.style.top);
+    const w = n.el.offsetWidth;
+    const h = n.el.offsetHeight;
+
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x + w);
+    maxY = Math.max(maxY, y + h);
+  });
+
+  const width = maxX - minX + padding * 2;
+  const height = maxY - minY + padding * 2;
+
+  html2canvas(world, {
+    backgroundColor: "#ffffff",
+    x: minX - padding,
+    y: minY - padding,
+    width: width,
+    height: height,
+    scale: 2 // higher resolution
+  }).then(canvasExport => {
     const link = document.createElement("a");
     link.download = "mindmap.png";
-    link.href = c.toDataURL();
+    link.href = canvasExport.toDataURL("image/png");
     link.click();
   });
 }
+
 
 /* ---------- EXPORT SVG ---------- */
 function exportSVG() {
@@ -874,7 +907,7 @@ function exportSVG() {
     text.setAttribute("y", y + h / 2);
     text.setAttribute("text-anchor", "middle");
     text.setAttribute("dominant-baseline", "middle");
-    text.setAttribute("fill", "rgba(0,0,0,1)");
+    text.setAttribute("fill", n.color);
     text.setAttribute("font-family", "Arial");
     text.setAttribute("font-size", "x-large");
     text.setAttribute("font-weight", "bold");
