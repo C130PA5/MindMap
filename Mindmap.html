@@ -77,13 +77,14 @@ input {
   background: transparent;
   box-shadow: none;
   border-radius: 0;
-  padding: 2px 6px;
+  padding: 8px 10px;
   min-width: unset;
   max-width: 350px;
   min-height: 30px;
   font-size: x-large;
   font-weight: bold;
   text-align: center;
+  vertical-align: bottom;
   line-height: 1.4;
   cursor: move;
   text-wrap: wrap;
@@ -335,10 +336,13 @@ el.addEventListener('input', function() {  // I tried also onchange
   applyTransform();
 });
 
+function generateId() {
+  return crypto.randomUUID(); // modern browsers
+}
 /* ---------- NODE ---------- */
 function createNode(x, y, text="New Node", url="", className="node", color="#000000") {
   text = text.trim();
-  id = nodes.length + 1
+  id = generateId()
   const node = {
     id,
     text,
@@ -427,7 +431,6 @@ node.el.addEventListener("click", e => {
   // If clicking same primary → clear selection
   if (primaryNode === clickedNode) {
     clearSelection();
-    primaryNode = null;
     return;
   }
 
@@ -445,7 +448,6 @@ node.el.addEventListener("click", e => {
   }
 
   clearSelection();
-  primaryNode = null;
 });
   // --- Edit ---
 }
@@ -542,6 +544,7 @@ function selectNode(nodeObj, multi = false) {
 function clearSelection() {
   nodes.forEach(n => n.el.classList.remove("selected"));
   selectedNodes.clear();
+  primaryNode = null
 }
 
 
@@ -640,9 +643,9 @@ function redraw() {
 
     path.setAttribute(
       "d",
-      `M ${x0 - 40} ${y1}
-      L ${x1 + 40} ${y1}
-      L ${x1 + 40} ${y2}
+      `M ${x0} ${y1}
+      L ${x1} ${y1}
+      L ${x1} ${y2}
       L ${x2} ${y2}`
     );
 
@@ -760,7 +763,6 @@ document.addEventListener("keydown", e => {
   // ⎋ ESC clears selection
   if (e.key === "Escape") {
     clearSelection();
-    primaryNode = null;
     updateInspector();
   }
 });
@@ -1103,11 +1105,11 @@ function horizontalTreeLayout() {
 
   const roots = nodes.filter(n => indegree.get(n) === 0);
 
-  const minlevelGap = 250;   // horizontal spacing
+  const minlevelGap = 50;   // horizontal spacing
   const verticalGap = 50; // vertical spacing
   const maxWidth = 450;
   let levelGap = nodes.map(n => n.el.getBoundingClientRect().width).sort((a,b) => a > b);
-  levelGap = Math.max(minlevelGap, Math.max(levelGap[levelGap.length - 1])+100);
+  levelGap = Math.max(minlevelGap, Math.max(levelGap[levelGap.length - 1]));
 
   levelGap = Math.min(levelGap, maxWidth)
 
