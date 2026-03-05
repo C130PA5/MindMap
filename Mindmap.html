@@ -257,9 +257,7 @@ function applyColorToSelection(color) {
     node.el.style.color = color;
   });
 
-  resetTransform();
-  redraw();
-  applyTransform();
+  redrawWorld();
 }
 
 /* ---------- CACHING ---------- */
@@ -331,9 +329,7 @@ function setNodeReference(node, url) {
 let el = document.getElementById('lineColor');
 el.setAttribute("value", rgbToHex("rgba(163,163,163,1)"))
 el.addEventListener('input', function() {  // I tried also onchange
-  resetTransform();
-  redraw();
-  applyTransform();
+  redrawWorld();
 });
 
 function generateId() {
@@ -441,9 +437,7 @@ node.el.addEventListener("click", e => {
       to: clickedNode
     });
 
-    resetTransform();
-    redraw();
-    applyTransform();
+    redrawWorld();
     saveToCache();
   }
 
@@ -563,11 +557,12 @@ function applyChanges() {
     node.el.querySelector(".node-text").textContent = node.text;
   });
 
-  resetTransform()
-  redraw();
-  applyTransform()
+  redrawWorld();
   saveToCache();
 }
+
+
+
 
 
 function getRoots(){
@@ -655,9 +650,14 @@ function redraw() {
 
     svg.appendChild(path);
   });
+
 }
 
-
+function redrawWorld(){
+  resetTransform();
+  redraw();
+  applyTransform();
+}
 /* ---------- DRAG ---------- */
 document.addEventListener("mousemove", e => {
   if (!draggingNode) return;
@@ -672,9 +672,7 @@ document.addEventListener("mousemove", e => {
   draggingNode.style.left = x + "px";
   draggingNode.style.top  = y + "px";
 
-  resetTransform()
-  redraw();
-  applyTransform()
+  redrawWorld();
 });
 
 document.addEventListener("mouseup", () => {
@@ -728,6 +726,7 @@ document.addEventListener("mousemove", e => {
   panX = e.clientX - offsetX;
   panY = e.clientY - offsetY;
   applyTransform();
+
 });
 
 document.addEventListener("mouseup", () => {
@@ -745,7 +744,6 @@ function applyTransform() {
     `translate(${panX}px, ${panY}px) scale(${scale})`;
 }
 
-
 /* ---------- KEYBOARD ---------- */
 document.addEventListener("keydown", e => {
   if (e.key === "Delete" && selectedNodes) {
@@ -756,9 +754,7 @@ document.addEventListener("keydown", e => {
     })
 
     clearSelection();
-  resetTransform()
-  redraw();
-  applyTransform()
+  redrawWorld();
   }
   // ⎋ ESC clears selection
   if (e.key === "Escape") {
@@ -822,6 +818,7 @@ function showSubtree(node) {
 function exportPNG() {
   if (nodes.length === 0) return;
 
+  resetTransform()
   clearSelection();
 
   const padding = 40;
@@ -859,16 +856,46 @@ function exportPNG() {
     link.href = canvasExport.toDataURL("image/png");
     link.click();
   });
+  applyTransform()
 }
 
 
 /* ---------- EXPORT SVG ---------- */
 function exportSVG() {
-  const padding = 40;
 
-  // Get bounds of all nodes
+  const MAX_NODE_WIDTH = 200;
+  const LINE_HEIGHT = 25;
+  const padding = 40;
+  const PADDING_Y = 8;
+
+  const measureCanvas = document.createElement("canvas");
+  const ctx = measureCanvas.getContext("2d");
+  ctx.font = "14px Arial";
+
+  function wrapText(text) {
+    const words = text.split(" ");
+    const lines = [];
+    let line = "";
+
+    for (const word of words) {
+      const test = line ? line + " " + word : word;
+      const width = ctx.measureText(test).width;
+
+      if (width > MAX_NODE_WIDTH && line) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = test;
+      }
+    }
+
+    if (line) lines.push(line);
+    return lines;
+  }
+
   let minX = Infinity, minY = Infinity;
   let maxX = -Infinity, maxY = -Infinity;
+
   clearSelection(); // remove outline
   nodes.forEach(n => {
     const x = parseFloat(n.el.style.left);
@@ -893,7 +920,7 @@ function exportSVG() {
   svgExport.setAttribute("height", height);
   svgExport.setAttribute("viewBox", `0 0 ${width} ${height}`);
 
-  /* ---------- DRAW EDGES ---------- */
+/* ---------- DRAW EDGES ---------- */
   edges.forEach(e => {
     const a = nodes.find(n => n === e.from);
     const b = nodes.find(n => n === e.to);
@@ -925,27 +952,19 @@ function exportSVG() {
     svgExport.appendChild(path);
   });
 
-  /* ---------- DRAW NODES ---------- */
+
+  // NODES
   nodes.forEach(n => {
     const x = parseFloat(n.el.style.left) - minX + padding;
     const y = parseFloat(n.el.style.top) - minY;
     const w = n.el.offsetWidth;
     const h = n.el.offsetHeight;
-
-    const rect = document.createElementNS(xmlns, "rect");
-    rect.setAttribute("x", x);
-    rect.setAttribute("y", y);
-    rect.setAttribute("width", w);
-    rect.setAttribute("height", h);
-    rect.setAttribute("rx", 8);
-    rect.setAttribute("fill", "transparent");
-    rect.setAttribute("stroke", "transparent");
-
-    svgExport.appendChild(rect);
+    const centerX = x + w/2;
+    const textY = y + LINE_HEIGHT;
 
     const text = document.createElementNS(xmlns, "text");
-    text.setAttribute("x", x + w / 2);
-    text.setAttribute("y", y + h / 2);
+    text.setAttribute("x", centerX);
+    text.setAttribute("y", textY);
     text.setAttribute("text-anchor", "middle");
     text.setAttribute("dominant-baseline", "middle");
     text.setAttribute("fill", n.color);
@@ -953,11 +972,20 @@ function exportSVG() {
     text.setAttribute("font-size", "x-large");
     text.setAttribute("font-weight", "bold");
 
-    text.textContent = n.text;
+    const lines = wrapText(n.text);
 
-    svgExport.appendChild(text);
+    lines.forEach((line, i) => {
+      let tspan = document.createElementNS(xmlns, "tspan");
+      const dy = i === 0 ? 0 : LINE_HEIGHT;
+      tspan.setAttribute("x", centerX);
+      tspan.setAttribute("dy", dy);
+      tspan.textContent = line;
+      text.append(tspan)
+    });
+
+    svgExport.appendChild(text)
   });
-
+  
   /* ---------- DOWNLOAD ---------- */
   const serializer = new XMLSerializer();
   const svgBlob = new Blob(
@@ -1052,9 +1080,7 @@ function loadJSON(data) {
 
   // Wait for browser to render text, then layout & redraw
   requestAnimationFrame(() => {
-  resetTransform();
-  redraw();
-  applyTransform();
+  redrawWorld();
   horizontalTreeLayout();
   });
 }
@@ -1186,10 +1212,8 @@ function horizontalTreeLayout() {
   world.style.transform = prevTransform;
 
   // 🔥 Recalculate edges from new node positions
-  resetTransform()
-  redraw();
-  applyTransform()
-  saveToCache()
+  redrawWorld();
+  saveToCache();
 }
 
 function fitToWindow() {
@@ -1226,7 +1250,7 @@ function fitToWindow() {
   panX = -minX * scale + (viewWidth - worldWidth * scale) / 2;
   panY = -minY * scale + (viewHeight - worldHeight * scale) / 2;
 
-  applyTransform();
+  redrawWorld()
 }
 
 function removeLastConnection() {
@@ -1234,10 +1258,8 @@ function removeLastConnection() {
 
   edges.pop();          // remove most recent connection
   clearSelection();     // safety
-  resetTransform();
-  redraw();
-  applyTransform();  // horizontalTreeLayout();
-  saveToCache()
+  redrawWorld();  // horizontalTreeLayout();
+  saveToCache();
 }
 
 window.addEventListener("load", () => {
