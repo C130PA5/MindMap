@@ -257,7 +257,9 @@ function applyColorToSelection(color) {
     node.el.style.color = color;
   });
 
-  redrawWorld();
+  resetTransform();
+  redraw();
+  applyTransform();
 }
 
 /* ---------- CACHING ---------- */
@@ -329,7 +331,9 @@ function setNodeReference(node, url) {
 let el = document.getElementById('lineColor');
 el.setAttribute("value", rgbToHex("rgba(163,163,163,1)"))
 el.addEventListener('input', function() {  // I tried also onchange
-  redrawWorld();
+  resetTransform();
+  redraw();
+  applyTransform();
 });
 
 function generateId() {
@@ -437,7 +441,9 @@ node.el.addEventListener("click", e => {
       to: clickedNode
     });
 
-    redrawWorld();
+    resetTransform();
+    redraw();
+    applyTransform();
     saveToCache();
   }
 
@@ -557,12 +563,11 @@ function applyChanges() {
     node.el.querySelector(".node-text").textContent = node.text;
   });
 
-  redrawWorld();
+  resetTransform()
+  redraw();
+  applyTransform()
   saveToCache();
 }
-
-
-
 
 
 function getRoots(){
@@ -650,14 +655,9 @@ function redraw() {
 
     svg.appendChild(path);
   });
-
 }
 
-function redrawWorld(){
-  resetTransform();
-  redraw();
-  applyTransform();
-}
+
 /* ---------- DRAG ---------- */
 document.addEventListener("mousemove", e => {
   if (!draggingNode) return;
@@ -672,7 +672,9 @@ document.addEventListener("mousemove", e => {
   draggingNode.style.left = x + "px";
   draggingNode.style.top  = y + "px";
 
-  redrawWorld();
+  resetTransform()
+  redraw();
+  applyTransform()
 });
 
 document.addEventListener("mouseup", () => {
@@ -726,7 +728,6 @@ document.addEventListener("mousemove", e => {
   panX = e.clientX - offsetX;
   panY = e.clientY - offsetY;
   applyTransform();
-
 });
 
 document.addEventListener("mouseup", () => {
@@ -744,6 +745,7 @@ function applyTransform() {
     `translate(${panX}px, ${panY}px) scale(${scale})`;
 }
 
+
 /* ---------- KEYBOARD ---------- */
 document.addEventListener("keydown", e => {
   if (e.key === "Delete" && selectedNodes) {
@@ -754,7 +756,9 @@ document.addEventListener("keydown", e => {
     })
 
     clearSelection();
-  redrawWorld();
+  resetTransform()
+  redraw();
+  applyTransform()
   }
   // ⎋ ESC clears selection
   if (e.key === "Escape") {
@@ -818,7 +822,6 @@ function showSubtree(node) {
 function exportPNG() {
   if (nodes.length === 0) return;
 
-  resetTransform()
   clearSelection();
 
   const padding = 40;
@@ -856,7 +859,6 @@ function exportPNG() {
     link.href = canvasExport.toDataURL("image/png");
     link.click();
   });
-  applyTransform()
 }
 
 
@@ -1050,7 +1052,9 @@ function loadJSON(data) {
 
   // Wait for browser to render text, then layout & redraw
   requestAnimationFrame(() => {
-  redrawWorld();
+  resetTransform();
+  redraw();
+  applyTransform();
   horizontalTreeLayout();
   });
 }
@@ -1143,7 +1147,7 @@ function horizontalTreeLayout() {
 
     if (!kids || kids.length === 0) {
       // Leaf node
-      centerY = topY - nodeH / 2;
+      centerY = topY + nodeH / 2;
     } else {
       // Place children first
       let y = topY;
@@ -1182,8 +1186,10 @@ function horizontalTreeLayout() {
   world.style.transform = prevTransform;
 
   // 🔥 Recalculate edges from new node positions
-  redrawWorld();
-  saveToCache();
+  resetTransform()
+  redraw();
+  applyTransform()
+  saveToCache()
 }
 
 function fitToWindow() {
@@ -1220,7 +1226,7 @@ function fitToWindow() {
   panX = -minX * scale + (viewWidth - worldWidth * scale) / 2;
   panY = -minY * scale + (viewHeight - worldHeight * scale) / 2;
 
-  redrawWorld()
+  applyTransform();
 }
 
 function removeLastConnection() {
@@ -1228,8 +1234,10 @@ function removeLastConnection() {
 
   edges.pop();          // remove most recent connection
   clearSelection();     // safety
-  redrawWorld();  // horizontalTreeLayout();
-  saveToCache();
+  resetTransform();
+  redraw();
+  applyTransform();  // horizontalTreeLayout();
+  saveToCache()
 }
 
 window.addEventListener("load", () => {
